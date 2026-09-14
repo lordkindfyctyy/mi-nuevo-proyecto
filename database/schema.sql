@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_users_tenant_email (tenant_id, email),
+    KEY idx_users_tenant (tenant_id),
     CONSTRAINT fk_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_products_tenant_sku (tenant_id, sku),
+    KEY idx_products_tenant (tenant_id),
     CONSTRAINT fk_products_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -61,6 +63,8 @@ CREATE TABLE IF NOT EXISTS sales (
     payment_method ENUM('cash', 'card', 'transfer', 'other') NOT NULL DEFAULT 'cash',
     status ENUM('completed', 'cancelled') NOT NULL DEFAULT 'completed',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_sales_tenant (tenant_id),
+    KEY idx_sales_user (user_id),
     CONSTRAINT fk_sales_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     CONSTRAINT fk_sales_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -73,15 +77,10 @@ CREATE TABLE IF NOT EXISTS sale_items (
     quantity INT UNSIGNED NOT NULL DEFAULT 1,
     unit_price DECIMAL(10,2) NOT NULL,
     subtotal DECIMAL(10,2) NOT NULL,
+    KEY idx_sale_items_sale (sale_id),
+    KEY idx_sale_items_product (product_id),
     CONSTRAINT fk_sale_items_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     CONSTRAINT fk_sale_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE INDEX idx_users_tenant ON users(tenant_id);
-CREATE INDEX idx_products_tenant ON products(tenant_id);
-CREATE INDEX idx_sales_tenant ON sales(tenant_id);
-CREATE INDEX idx_sales_user ON sales(user_id);
-CREATE INDEX idx_sale_items_sale ON sale_items(sale_id);
-CREATE INDEX idx_sale_items_product ON sale_items(product_id);
 
 SET FOREIGN_KEY_CHECKS = 1;
