@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS products (
     name VARCHAR(150) NOT NULL,
     sku VARCHAR(60) NULL,
     description TEXT NULL,
+    category VARCHAR(60) NULL,
+    image_url VARCHAR(255) NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     cost DECIMAL(10,2) NOT NULL DEFAULT 0,
     stock_quantity INT NOT NULL DEFAULT 0,

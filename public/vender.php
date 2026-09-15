@@ -3,11 +3,10 @@ require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Product.php';
 require_once __DIR__ . '/../src/models/Sale.php';
 requireLogin();
-require_once __DIR__ . '/../includes/header.php';
 
 $tenantId = currentTenantId();
 $products = $tenantId ? Product::allByTenant($tenantId) : [];
-$products = array_values(array_filter($products, fn($p) => $p['status'] === 'active' && (int) $p['stock_quantity'] > 0));
+$products = array_values(array_filter($products, fn($p) => $p['status'] === 'active'));
 
 $productsJson = json_encode(array_map(fn($p) => [
     'id' => (int) $p['id'],
@@ -15,172 +14,272 @@ $productsJson = json_encode(array_map(fn($p) => [
     'sku' => $p['sku'] ?? '',
     'price' => (float) $p['price'],
     'stock' => (int) $p['stock_quantity'],
+    'category' => $p['category'] ?? '',
+    'image' => $p['image_url'] ?? '',
+    'description' => $p['description'] ?? '',
 ], $products), JSON_UNESCAPED_UNICODE);
 
 $lastSale = null;
-$lastSaleItems = [];
 if (isset($_GET['success'], $_GET['sale']) && $tenantId) {
     $lastSale = Sale::findForTenant((int) $_GET['sale'], $tenantId);
-    if ($lastSale) {
-        $lastSaleItems = Sale::itemsFor((int) $_GET['sale']);
+}
+
+$currentPage = basename($_SERVER['SCRIPT_NAME']);
+
+$navItems = [
+    ['label' => 'Vender', 'href' => BASE_URL . '/vender.php', 'icon' => 'bi-cart3', 'match' => 'vender.php'],
+    ['label' => 'Balance', 'href' => BASE_URL . '/reportes.php', 'icon' => 'bi-bar-chart-line', 'match' => 'reportes.php'],
+    ['label' => 'Inventario', 'href' => BASE_URL . '/productos.php', 'icon' => 'bi-box-seam', 'match' => 'productos.php'],
+    ['label' => 'Clientes', 'href' => null, 'icon' => 'bi-people', 'match' => null],
+    ['label' => 'Proveedores', 'href' => BASE_URL . '/proveedores.php', 'icon' => 'bi-truck', 'match' => 'proveedores.php'],
+];
+
+function pos_render_nav(array $items, string $currentPage): void
+{
+    foreach ($items as $item) {
+        if ($item['href'] === null) {
+            echo '<span class="pos-nav-link disabled">';
+            echo '<i class="bi ' . htmlspecialchars($item['icon']) . '"></i> ' . htmlspecialchars($item['label']);
+            echo '<span class="badge bg-secondary-subtle text-secondary-emphasis ms-auto">Pronto</span>';
+            echo '</span>';
+            continue;
+        }
+
+        $active = $item['match'] !== null && $currentPage === $item['match'];
+        echo '<a class="pos-nav-link' . ($active ? ' active' : '') . '" href="' . htmlspecialchars($item['href']) . '">';
+        echo '<i class="bi ' . htmlspecialchars($item['icon']) . '"></i> ' . htmlspecialchars($item['label']);
+        echo '</a>';
     }
 }
 ?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vender · <?= APP_NAME ?></title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
+    <style>
+        html, body { height: 100%; }
+        body.pos-page { margin: 0; background: #f1f2f4; }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 fw-bold mb-0">Registrar venta</h1>
+        .pos-shell { display: flex; flex-direction: column; min-height: 100vh; }
+        @media (min-width: 992px) {
+            .pos-shell { flex-direction: row; height: 100vh; overflow: hidden; }
+        }
+
+        .pos-topbar {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .75rem 1rem; background: #fff; border-bottom: 1px solid var(--color-border);
+        }
+        @media (min-width: 992px) { .pos-topbar { display: none; } }
+
+        .pos-sidebar { display: none; }
+        @media (min-width: 992px) {
+            .pos-sidebar {
+                display: flex; flex-direction: column; width: 220px; flex-shrink: 0;
+                background: #fff; border-right: 1px solid var(--color-border); overflow-y: auto;
+            }
+        }
+        .pos-sidebar-brand {
+            padding: 1.25rem 1rem; font-weight: 700; color: var(--color-primary);
+            font-size: 1.1rem; text-decoration: none; border-bottom: 1px solid var(--color-border);
+        }
+        .pos-nav { display: flex; flex-direction: column; padding: .75rem .5rem; gap: .2rem; flex: 1; }
+        .pos-nav-link {
+            display: flex; align-items: center; gap: .6rem; padding: .6rem .75rem;
+            border-radius: .5rem; color: var(--color-text); text-decoration: none; font-weight: 500;
+        }
+        .pos-nav-link i { font-size: 1.1rem; width: 1.25rem; text-align: center; }
+        .pos-nav-link:hover { background: #f3f4f6; }
+        .pos-nav-link.active { background: rgba(0, 178, 143, .12); color: var(--color-primary); }
+        .pos-nav-link.disabled { color: #9ca3af; }
+        .pos-sidebar-footer { padding: .75rem 1rem; border-top: 1px solid var(--color-border); font-size: .85rem; }
+
+        .pos-products { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 1rem 1.25rem; }
+        @media (min-width: 992px) { .pos-products { overflow-y: auto; } }
+
+        .pos-category-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0 1rem; }
+        .pos-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+
+        .product-card {
+            background: #fff; border: 1px solid var(--color-border); border-radius: .75rem; overflow: hidden;
+            cursor: pointer; transition: box-shadow .15s, transform .15s; display: flex; flex-direction: column;
+        }
+        .product-card:hover { box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .08); transform: translateY(-2px); }
+        .product-card.out-of-stock { opacity: .55; cursor: not-allowed; }
+        .product-card.out-of-stock:hover { box-shadow: none; transform: none; }
+        .product-card-image {
+            aspect-ratio: 1 / 1; background: #f3f4f6; display: flex; align-items: center; justify-content: center;
+            color: #9ca3af; font-size: 2rem; overflow: hidden; position: relative;
+        }
+        .product-card-image img { width: 100%; height: 100%; object-fit: cover; }
+        .product-stock-badge { position: absolute; top: .4rem; right: .4rem; font-size: .68rem; }
+        .product-card-body { padding: .6rem .75rem .75rem; display: flex; flex-direction: column; gap: .15rem; }
+        .product-card-price { font-weight: 700; color: var(--color-primary); font-size: 1.05rem; }
+        .product-card-name {
+            font-weight: 600; font-size: .85rem; line-height: 1.25;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .product-card-desc { font-size: .75rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .pos-cart { display: flex; flex-direction: column; background: #fff; border-top: 1px solid var(--color-border); }
+        @media (min-width: 992px) {
+            .pos-cart { width: 380px; flex-shrink: 0; border-top: none; border-left: 1px solid var(--color-border); overflow: hidden; }
+        }
+        .pos-cart-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border);
+        }
+        .pos-cart-items { flex: 1; overflow-y: auto; padding: 0 1.25rem; max-height: 50vh; }
+        @media (min-width: 992px) { .pos-cart-items { max-height: none; } }
+        .cart-item { display: flex; align-items: center; gap: .6rem; padding: .65rem 0; border-bottom: 1px solid #f1f2f4; }
+        .cart-item-name { font-weight: 600; font-size: .85rem; }
+        .cart-item-price { font-size: .75rem; color: #6b7280; }
+        .cart-qty { display: flex; align-items: center; gap: .35rem; }
+        .cart-qty button { width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; }
+        .pos-cart-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--color-border); }
+        .pos-cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.25rem; margin-bottom: .75rem; }
+        .pos-continue-btn { width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600; border-radius: .75rem; }
+        .pos-cart-empty { text-align: center; color: #9ca3af; padding: 2rem 1rem; }
+    </style>
+</head>
+<body class="pos-page">
+<div class="pos-shell">
+
+    <div class="pos-topbar d-lg-none">
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#posSidebarOffcanvas" aria-controls="posSidebarOffcanvas">
+            <i class="bi bi-list"></i>
+        </button>
+        <a href="<?= BASE_URL ?>/index.php" class="fw-bold text-primary text-decoration-none"><?= APP_NAME ?></a>
+    </div>
+
+    <aside class="pos-sidebar">
+        <a href="<?= BASE_URL ?>/index.php" class="pos-sidebar-brand"><?= APP_NAME ?></a>
+        <nav class="pos-nav"><?php pos_render_nav($navItems, $currentPage); ?></nav>
+        <div class="pos-sidebar-footer text-secondary">
+            <div class="fw-semibold text-truncate"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
+            <?php if (currentTenantName()): ?><div class="text-truncate small"><?= htmlspecialchars(currentTenantName()) ?></div><?php endif; ?>
+            <a href="<?= BASE_URL ?>/logout.php" class="small">Cerrar sesión</a>
+        </div>
+    </aside>
+
+    <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="posSidebarOffcanvas">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title"><?= APP_NAME ?></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column p-0">
+            <nav class="pos-nav"><?php pos_render_nav($navItems, $currentPage); ?></nav>
+            <div class="pos-sidebar-footer text-secondary mt-auto">
+                <div class="fw-semibold text-truncate"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
+                <?php if (currentTenantName()): ?><div class="text-truncate small"><?= htmlspecialchars(currentTenantName()) ?></div><?php endif; ?>
+                <a href="<?= BASE_URL ?>/logout.php" class="small">Cerrar sesión</a>
+            </div>
+        </div>
+    </div>
+
+    <main class="pos-products">
+        <?php if ($lastSale): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong> Total: $<?= number_format((float) $lastSale['total'], 2) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+        <?php if (isset($_GET['error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php
+                $errors = [
+                    'stock' => 'No hay suficiente stock para uno o más productos seleccionados.',
+                    'items' => 'Selecciona al menos un producto con cantidad mayor a cero.',
+                ];
+                echo $errors[$_GET['error']] ?? 'No se pudo registrar la venta. Intenta de nuevo.';
+                ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!$tenantId): ?>
+            <div class="alert alert-warning">No hay ningún negocio registrado todavía. Ejecuta <code>database/seed.php</code> primero.</div>
+        <?php elseif (!$products): ?>
+            <div class="alert alert-warning">No hay productos registrados. Agrega productos desde <a href="<?= BASE_URL ?>/productos.php">Inventario</a>.</div>
+        <?php else: ?>
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-white"><i class="bi bi-upc-scan"></i></span>
+                <input type="search" id="product-search" class="form-control" placeholder="Buscar por nombre o SKU / código de barras..." autocomplete="off" autofocus>
+            </div>
+            <div class="pos-category-filters" id="category-filters"></div>
+            <div class="pos-product-grid" id="product-grid"></div>
+            <p id="no-results" class="text-center text-secondary py-5" hidden>No se encontraron productos.</p>
+        <?php endif; ?>
+    </main>
+
+    <?php if ($tenantId && $products): ?>
+    <aside class="pos-cart">
+        <div class="pos-cart-header">
+            <h2 class="h6 fw-bold mb-0">Productos</h2>
+            <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none p-0" id="clear-cart-btn">Vaciar canasta</button>
+        </div>
+        <form method="POST" action="<?= BASE_URL ?>/process/sale_process.php" id="sale-form" class="d-flex flex-column flex-grow-1 overflow-hidden">
+            <div id="cart-inputs"></div>
+            <div class="pos-cart-items">
+                <div class="pos-cart-empty" id="cart-empty">
+                    <i class="bi bi-cart3 fs-1 d-block mb-2"></i>
+                    Escanea o agrega productos para comenzar la venta.
+                </div>
+                <div id="cart-list"></div>
+            </div>
+            <div class="pos-cart-footer">
+                <div class="mb-2">
+                    <input type="text" id="customer_name" name="customer_name" class="form-control form-control-sm" placeholder="Cliente (opcional)">
+                </div>
+                <div class="mb-3">
+                    <select id="payment_method" name="payment_method" class="form-select form-select-sm">
+                        <option value="cash">Efectivo</option>
+                        <option value="card">Tarjeta</option>
+                        <option value="transfer">Transferencia</option>
+                        <option value="other">Otro</option>
+                    </select>
+                </div>
+                <div class="pos-cart-total">
+                    <span>Total</span>
+                    <span id="grand-total">$0.00</span>
+                </div>
+                <button type="submit" class="btn btn-primary pos-continue-btn" id="submit-btn" disabled>
+                    Continuar · <span id="submit-total">$0.00</span>
+                </button>
+            </div>
+        </form>
+    </aside>
+    <?php endif; ?>
+
 </div>
 
-<?php if ($lastSale): ?>
-    <div class="alert alert-success">
-        <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong>
-        Total: $<?= number_format((float) $lastSale['total'], 2) ?>
-        <ul class="mb-0 mt-2">
-            <?php foreach ($lastSaleItems as $item): ?>
-                <li><?= htmlspecialchars($item['product_name']) ?> x <?= (int) $item['quantity'] ?> = $<?= number_format((float) $item['subtotal'], 2) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    </div>
-<?php endif; ?>
-
-<?php if (isset($_GET['error'])): ?>
-    <div class="alert alert-danger">
-        <?php
-        $errors = [
-            'stock' => 'No hay suficiente stock para uno o más productos seleccionados.',
-            'items' => 'Selecciona al menos un producto con cantidad mayor a cero.',
-        ];
-        echo $errors[$_GET['error']] ?? 'No se pudo registrar la venta. Intenta de nuevo.';
-        ?>
-    </div>
-<?php endif; ?>
-
-<?php if (!$tenantId): ?>
-    <div class="alert alert-warning">No hay ningún negocio registrado todavía. Ejecuta <code>database/seed.php</code> primero.</div>
-<?php elseif (!$products): ?>
-    <div class="alert alert-warning">No hay productos con stock disponible. Agrega productos desde <a href="<?= BASE_URL ?>/productos.php">Productos</a>.</div>
-<?php else: ?>
-
-<form method="POST" action="<?= BASE_URL ?>/process/sale_process.php" id="sale-form">
-    <div id="cart-inputs"></div>
-    <div class="row g-4">
-        <div class="col-lg-7">
-            <div class="mb-3">
-                <input type="search" id="product-search" class="form-control form-control-lg"
-                       placeholder="Buscar producto por nombre o SKU..." autocomplete="off">
-            </div>
-            <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>SKU</th>
-                            <th class="text-end">Precio</th>
-                            <th class="text-end">Stock</th>
-                            <th class="text-end"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="product-list"></tbody>
-                </table>
-                <p id="no-results" class="text-center text-secondary py-4 mb-0" hidden>No se encontraron productos.</p>
-            </div>
-        </div>
-        <div class="col-lg-5">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h2 class="h5 fw-semibold mb-3">Carrito</h2>
-                    <div id="cart-empty" class="text-secondary small py-3 text-center">
-                        Todavía no has agregado productos.
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0" id="cart-table" hidden>
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th style="width: 90px;">Cant.</th>
-                                    <th class="text-end">Subtotal</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="cart-items"></tbody>
-                        </table>
-                    </div>
-                    <hr>
-                    <div class="mb-3">
-                        <label for="customer_name" class="form-label">Cliente (opcional)</label>
-                        <input type="text" id="customer_name" name="customer_name" class="form-control">
-                    </div>
-                    <div class="mb-3">
-                        <label for="payment_method" class="form-label">Método de pago</label>
-                        <select id="payment_method" name="payment_method" class="form-select">
-                            <option value="cash">Efectivo</option>
-                            <option value="card">Tarjeta</option>
-                            <option value="transfer">Transferencia</option>
-                            <option value="other">Otro</option>
-                        </select>
-                    </div>
-                    <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-3 mb-3">
-                        <span>Total</span>
-                        <span id="grand-total">$0.00</span>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill" id="submit-btn" disabled>Registrar venta</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</form>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const products = <?= $productsJson ?: '[]' ?>;
     const cart = new Map();
+    let activeCategory = 'all';
 
     const searchInput = document.getElementById('product-search');
-    const productListEl = document.getElementById('product-list');
+    if (!searchInput) return;
+
+    const categoryFiltersEl = document.getElementById('category-filters');
+    const productGridEl = document.getElementById('product-grid');
     const noResultsEl = document.getElementById('no-results');
-    const cartItemsEl = document.getElementById('cart-items');
-    const cartTableEl = document.getElementById('cart-table');
+    const cartListEl = document.getElementById('cart-list');
     const cartEmptyEl = document.getElementById('cart-empty');
-    const grandTotalEl = document.getElementById('grand-total');
-    const submitBtn = document.getElementById('submit-btn');
     const cartInputsEl = document.getElementById('cart-inputs');
+    const grandTotalEl = document.getElementById('grand-total');
+    const submitTotalEl = document.getElementById('submit-total');
+    const submitBtn = document.getElementById('submit-btn');
+    const clearCartBtn = document.getElementById('clear-cart-btn');
 
     function formatMoney(value) {
         return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function availableStock(product) {
-        const inCart = cart.get(product.id);
-        return product.stock - (inCart ? inCart.quantity : 0);
-    }
-
-    function renderProductList() {
-        const term = searchInput.value.trim().toLowerCase();
-        const filtered = products.filter((p) => {
-            if (!term) return true;
-            return p.name.toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term);
-        });
-
-        productListEl.innerHTML = '';
-        noResultsEl.hidden = filtered.length > 0;
-
-        filtered.forEach((product) => {
-            const remaining = availableStock(product);
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${escapeHtml(product.name)}</td>
-                <td class="text-secondary">${escapeHtml(product.sku || '—')}</td>
-                <td class="text-end">${formatMoney(product.price)}</td>
-                <td class="text-end">${remaining}</td>
-                <td class="text-end">
-                    <button type="button" class="btn btn-sm btn-outline-primary add-btn" ${remaining <= 0 ? 'disabled' : ''}>
-                        Agregar
-                    </button>
-                </td>
-            `;
-            tr.querySelector('.add-btn').addEventListener('click', () => addToCart(product));
-            productListEl.appendChild(tr);
-        });
     }
 
     function escapeHtml(str) {
@@ -189,34 +288,101 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.innerHTML;
     }
 
-    function addToCart(product) {
-        if (availableStock(product) <= 0) return;
-        const existing = cart.get(product.id);
+    function availableStock(product) {
+        const inCart = cart.get(product.id);
+        return product.stock - (inCart ? inCart.quantity : 0);
+    }
+
+    function findProduct(id) {
+        return products.find((p) => p.id === id);
+    }
+
+    function renderCategoryFilters() {
+        const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort();
+        const options = [{ value: 'all', label: 'Todos' }, ...categories.map((c) => ({ value: c, label: c }))];
+
+        categoryFiltersEl.innerHTML = '';
+        options.forEach(({ value, label }) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm rounded-pill ' + (activeCategory === value ? 'btn-primary' : 'btn-outline-secondary');
+            btn.textContent = label;
+            btn.addEventListener('click', () => {
+                activeCategory = value;
+                renderCategoryFilters();
+                renderProducts();
+            });
+            categoryFiltersEl.appendChild(btn);
+        });
+    }
+
+    function renderProducts() {
+        const term = searchInput.value.trim().toLowerCase();
+        const filtered = products.filter((p) => {
+            const matchesTerm = !term || p.name.toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term);
+            const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
+            return matchesTerm && matchesCategory;
+        });
+
+        productGridEl.innerHTML = '';
+        noResultsEl.hidden = filtered.length > 0;
+
+        filtered.forEach((product) => {
+            const remaining = availableStock(product);
+            const outOfStock = remaining <= 0;
+            const card = document.createElement('div');
+            card.className = 'product-card' + (outOfStock ? ' out-of-stock' : '');
+            card.innerHTML = `
+                <div class="product-card-image">
+                    ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                    <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'} product-stock-badge">${outOfStock ? 'Sin stock' : remaining + ' disp.'}</span>
+                </div>
+                <div class="product-card-body">
+                    <div class="product-card-price">${formatMoney(product.price)}</div>
+                    <div class="product-card-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
+                    <div class="product-card-desc">${escapeHtml(product.sku || product.description || '')}</div>
+                </div>
+            `;
+            if (!outOfStock) {
+                card.addEventListener('click', () => addToCart(product.id));
+            }
+            productGridEl.appendChild(card);
+        });
+    }
+
+    function addToCart(id) {
+        const product = findProduct(id);
+        if (!product || availableStock(product) <= 0) return;
+        const existing = cart.get(id);
         if (existing) {
             existing.quantity += 1;
         } else {
-            cart.set(product.id, { product, quantity: 1 });
+            cart.set(id, { product, quantity: 1 });
+        }
+        renderAll();
+        focusSearch();
+    }
+
+    function updateQuantity(id, quantity) {
+        const entry = cart.get(id);
+        if (!entry) return;
+        quantity = Math.max(0, Math.min(quantity, entry.product.stock));
+        if (quantity === 0) {
+            cart.delete(id);
+        } else {
+            entry.quantity = quantity;
         }
         renderAll();
     }
 
-    function updateQuantity(productId, quantity) {
-        const entry = cart.get(productId);
-        if (!entry) return;
-        quantity = Math.max(1, Math.min(quantity, entry.product.stock));
-        entry.quantity = quantity;
-        renderAll();
-    }
-
-    function removeFromCart(productId) {
-        cart.delete(productId);
+    function removeFromCart(id) {
+        cart.delete(id);
         renderAll();
     }
 
     function renderCart() {
-        cartItemsEl.innerHTML = '';
+        cartListEl.innerHTML = '';
         const hasItems = cart.size > 0;
-        cartTableEl.hidden = !hasItems;
         cartEmptyEl.hidden = hasItems;
         submitBtn.disabled = !hasItems;
 
@@ -224,26 +390,29 @@ document.addEventListener('DOMContentLoaded', () => {
         cart.forEach(({ product, quantity }) => {
             const subtotal = product.price * quantity;
             total += subtotal;
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${escapeHtml(product.name)}</td>
-                <td>
-                    <input type="number" class="form-control form-control-sm cart-qty-input"
-                           min="1" max="${product.stock}" value="${quantity}">
-                </td>
-                <td class="text-end">${formatMoney(subtotal)}</td>
-                <td class="text-end">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-btn" aria-label="Quitar">&times;</button>
-                </td>
+            const row = document.createElement('div');
+            row.className = 'cart-item';
+            row.innerHTML = `
+                <div class="flex-grow-1" style="min-width:0;">
+                    <div class="cart-item-name text-truncate">${escapeHtml(product.name)}</div>
+                    <div class="cart-item-price">${formatMoney(product.price)} c/u</div>
+                </div>
+                <div class="cart-qty">
+                    <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
+                    <span class="fw-semibold" style="min-width:1.5rem;text-align:center;">${quantity}</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm inc-btn" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
+                </div>
+                <div class="text-end fw-semibold" style="min-width:5rem;">${formatMoney(subtotal)}</div>
+                <button type="button" class="btn btn-sm btn-link text-danger remove-btn" aria-label="Quitar"><i class="bi bi-trash"></i></button>
             `;
-            tr.querySelector('.cart-qty-input').addEventListener('input', (e) => {
-                updateQuantity(product.id, parseInt(e.target.value || '1', 10));
-            });
-            tr.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(product.id));
-            cartItemsEl.appendChild(tr);
+            row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - 1));
+            row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + 1));
+            row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(product.id));
+            cartListEl.appendChild(row);
         });
 
         grandTotalEl.textContent = formatMoney(total);
+        submitTotalEl.textContent = formatMoney(total);
 
         cartInputsEl.innerHTML = '';
         cart.forEach(({ product, quantity }) => {
@@ -256,16 +425,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderAll() {
-        renderProductList();
+        renderProducts();
         renderCart();
     }
 
-    searchInput.addEventListener('input', renderProductList);
+    function focusSearch() {
+        searchInput.focus();
+        searchInput.select();
+    }
 
+    function matchesActiveFilters(p, term) {
+        const matchesTerm = p.name.toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term);
+        const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
+        return matchesTerm && matchesCategory;
+    }
+
+    searchInput.addEventListener('input', renderProducts);
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const term = searchInput.value.trim().toLowerCase();
+        if (!term) return;
+
+        const exactSku = products.find((p) => (p.sku || '').toLowerCase() === term);
+        if (exactSku) {
+            addToCart(exactSku.id);
+            searchInput.value = '';
+            renderProducts();
+            return;
+        }
+
+        const visible = products.filter((p) => matchesActiveFilters(p, term));
+        if (visible.length === 1) {
+            addToCart(visible[0].id);
+            searchInput.value = '';
+            renderProducts();
+        }
+    });
+
+    clearCartBtn.addEventListener('click', () => {
+        if (cart.size === 0) return;
+        if (!confirm('¿Vaciar la canasta actual?')) return;
+        cart.clear();
+        renderAll();
+    });
+
+    renderCategoryFilters();
     renderAll();
+    focusSearch();
 });
 </script>
-
-<?php endif; ?>
-
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+</body>
+</html>

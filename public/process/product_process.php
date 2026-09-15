@@ -29,6 +29,8 @@ try {
         Product::create($tenantId, $name, $price, [
             'sku' => trim($_POST['sku'] ?? '') ?: null,
             'description' => trim($_POST['description'] ?? '') ?: null,
+            'category' => trim($_POST['category'] ?? '') ?: null,
+            'image_url' => trim($_POST['image_url'] ?? '') ?: null,
             'cost' => (float) ($_POST['cost'] ?? 0),
             'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),
         ]);
@@ -58,6 +60,8 @@ try {
             'name' => $name,
             'sku' => trim($_POST['sku'] ?? '') ?: null,
             'description' => trim($_POST['description'] ?? '') ?: null,
+            'category' => trim($_POST['category'] ?? '') ?: null,
+            'image_url' => trim($_POST['image_url'] ?? '') ?: null,
             'price' => $price,
             'cost' => (float) ($_POST['cost'] ?? 0),
             'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),

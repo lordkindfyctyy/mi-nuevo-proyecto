@@ -11,6 +11,9 @@ $editing = null;
 if (isset($_GET['edit']) && $tenantId) {
     $editing = Product::findForTenant((int) $_GET['edit'], $tenantId);
 }
+
+$categories = array_values(array_unique(array_filter(array_map(fn($p) => $p['category'], $products))));
+sort($categories);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -57,8 +60,21 @@ if (isset($_GET['edit']) && $tenantId) {
                 <label for="stock_quantity" class="form-label">Stock</label>
                 <input type="number" min="0" id="stock_quantity" name="stock_quantity" class="form-control" value="<?= htmlspecialchars((string) ($editing['stock_quantity'] ?? '0')) ?>">
             </div>
+            <div class="col-md-4">
+                <label for="category" class="form-label">Categoría</label>
+                <input type="text" id="category" name="category" class="form-control" list="category-suggestions" placeholder="Ej: Alimentos, Accesorios" value="<?= htmlspecialchars($editing['category'] ?? '') ?>">
+                <datalist id="category-suggestions">
+                    <?php foreach ($categories as $category): ?>
+                        <option value="<?= htmlspecialchars($category) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+            </div>
+            <div class="col-md-8">
+                <label for="image_url" class="form-label">URL de imagen (opcional)</label>
+                <input type="text" id="image_url" name="image_url" class="form-control" placeholder="https://..." value="<?= htmlspecialchars($editing['image_url'] ?? '') ?>">
+            </div>
             <div class="col-12">
-                <label for="description" class="form-label">Descripción</label>
+                <label for="description" class="form-label">Descripción corta</label>
                 <textarea id="description" name="description" class="form-control" rows="2"><?= htmlspecialchars($editing['description'] ?? '') ?></textarea>
             </div>
             <div class="col-12 d-flex gap-2">
@@ -77,6 +93,7 @@ if (isset($_GET['edit']) && $tenantId) {
             <tr>
                 <th>Nombre</th>
                 <th>SKU</th>
+                <th>Categoría</th>
                 <th class="text-end">Precio</th>
                 <th class="text-end">Costo</th>
                 <th class="text-end">Stock</th>
@@ -89,6 +106,7 @@ if (isset($_GET['edit']) && $tenantId) {
                 <tr>
                     <td><?= htmlspecialchars($product['name']) ?></td>
                     <td><?= htmlspecialchars($product['sku'] ?? '—') ?></td>
+                    <td><?= htmlspecialchars($product['category'] ?? '—') ?></td>
                     <td class="text-end">$<?= number_format((float) $product['price'], 2) ?></td>
                     <td class="text-end">$<?= number_format((float) $product['cost'], 2) ?></td>
                     <td class="text-end">
@@ -108,7 +126,7 @@ if (isset($_GET['edit']) && $tenantId) {
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="7" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="8" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

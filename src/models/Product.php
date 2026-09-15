@@ -12,14 +12,16 @@ class Product
     public static function create(int $tenantId, string $name, float $price, array $data = []): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO products (tenant_id, name, sku, description, price, cost, stock_quantity)
-             VALUES (:tenant_id, :name, :sku, :description, :price, :cost, :stock_quantity)'
+            'INSERT INTO products (tenant_id, name, sku, description, category, image_url, price, cost, stock_quantity)
+             VALUES (:tenant_id, :name, :sku, :description, :category, :image_url, :price, :cost, :stock_quantity)'
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
             'name' => $name,
             'sku' => $data['sku'] ?? null,
             'description' => $data['description'] ?? null,
+            'category' => $data['category'] ?? null,
+            'image_url' => $data['image_url'] ?? null,
             'price' => $price,
             'cost' => $data['cost'] ?? 0,
             'stock_quantity' => $data['stock_quantity'] ?? 0,
@@ -63,7 +65,7 @@ class Product
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'sku', 'description', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
+        foreach (['name', 'sku', 'description', 'category', 'image_url', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];
