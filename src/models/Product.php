@@ -12,8 +12,8 @@ class Product
     public static function create(int $tenantId, string $name, float $price, array $data = []): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO products (tenant_id, name, sku, description, category, image_url, price, cost, stock_quantity)
-             VALUES (:tenant_id, :name, :sku, :description, :category, :image_url, :price, :cost, :stock_quantity)'
+            'INSERT INTO products (tenant_id, name, sku, description, category, image_url, imagen, price, cost, stock_quantity)
+             VALUES (:tenant_id, :name, :sku, :description, :category, :image_url, :imagen, :price, :cost, :stock_quantity)'
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
@@ -22,6 +22,7 @@ class Product
             'description' => $data['description'] ?? null,
             'category' => $data['category'] ?? null,
             'image_url' => $data['image_url'] ?? null,
+            'imagen' => $data['imagen'] ?? null,
             'price' => $price,
             'cost' => $data['cost'] ?? 0,
             'stock_quantity' => $data['stock_quantity'] ?? 0,
@@ -65,7 +66,7 @@ class Product
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'sku', 'description', 'category', 'image_url', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
+        foreach (['name', 'sku', 'description', 'category', 'image_url', 'imagen', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];
@@ -95,5 +96,23 @@ class Product
         $stmt = self::db()->prepare('DELETE FROM products WHERE id = :id');
 
         return $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Resolves the display URL for a product's photo: an uploaded file
+     * (`imagen`, stored relative to /public) takes priority over a legacy
+     * external `image_url`. Returns null when neither is set.
+     */
+    public static function imageUrl(array $product): ?string
+    {
+        if (!empty($product['imagen'])) {
+            return BASE_URL . '/' . ltrim($product['imagen'], '/');
+        }
+
+        if (!empty($product['image_url'])) {
+            return $product['image_url'];
+        }
+
+        return null;
     }
 }

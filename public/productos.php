@@ -24,7 +24,16 @@ sort($categories);
     <div class="alert alert-success"><?= $_GET['success'] === 'deleted' ? 'Producto eliminado.' : 'Producto guardado correctamente.' ?></div>
 <?php endif; ?>
 <?php if (isset($_GET['error'])): ?>
-    <div class="alert alert-danger">No se pudo guardar el producto. Revisa los datos e intenta de nuevo.</div>
+    <div class="alert alert-danger">
+        <?php
+        $productErrors = [
+            'size' => 'La imagen supera el tamaño máximo permitido (5 MB).',
+            'type' => 'El archivo debe ser una imagen válida (JPG, PNG, GIF o WEBP).',
+            'upload' => 'Ocurrió un error al subir la imagen. Intenta de nuevo.',
+        ];
+        echo $productErrors[$_GET['error']] ?? 'No se pudo guardar el producto. Revisa los datos e intenta de nuevo.';
+        ?>
+    </div>
 <?php endif; ?>
 
 <?php if (!$tenantId): ?>
@@ -34,7 +43,7 @@ sort($categories);
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <h2 class="h5 fw-semibold mb-3"><?= $editing ? 'Editar producto' : 'Nuevo producto' ?></h2>
-        <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" class="row g-3">
+        <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" enctype="multipart/form-data" class="row g-3">
             <input type="hidden" name="action" value="<?= $editing ? 'update' : 'create' ?>">
             <?php if ($editing): ?>
                 <input type="hidden" name="id" value="<?= (int) $editing['id'] ?>">
@@ -70,8 +79,24 @@ sort($categories);
                 </datalist>
             </div>
             <div class="col-md-8">
-                <label for="image_url" class="form-label">URL de imagen (opcional)</label>
-                <input type="text" id="image_url" name="image_url" class="form-control" placeholder="https://..." value="<?= htmlspecialchars($editing['image_url'] ?? '') ?>">
+                <label for="imagen" class="form-label">Foto del producto</label>
+                <div class="d-flex align-items-center gap-3">
+                    <?php $currentImage = $editing ? Product::imageUrl($editing) : null; ?>
+                    <?php if ($currentImage): ?>
+                        <img src="<?= htmlspecialchars($currentImage) ?>" alt="" class="rounded border" style="width:56px;height:56px;object-fit:cover;flex-shrink:0;">
+                    <?php endif; ?>
+                    <div class="flex-grow-1">
+                        <input type="file" id="imagen" name="imagen" class="form-control" accept="image/*">
+                        <?php if ($currentImage): ?>
+                            <div class="form-check mt-1">
+                                <input type="checkbox" class="form-check-input" id="remove_image" name="remove_image" value="1">
+                                <label class="form-check-label small text-secondary" for="remove_image">Quitar imagen actual</label>
+                            </div>
+                        <?php else: ?>
+                            <div class="form-text">JPG, PNG, GIF o WEBP. Máximo 5 MB.</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
             <div class="col-12">
                 <label for="description" class="form-label">Descripción corta</label>
@@ -100,6 +125,7 @@ sort($categories);
     <table class="table align-middle">
         <thead>
             <tr>
+                <th>Foto</th>
                 <th>Nombre</th>
                 <th>SKU</th>
                 <th>Categoría</th>
@@ -113,6 +139,16 @@ sort($categories);
         <tbody id="product-table-body">
             <?php foreach ($products as $product): ?>
                 <tr data-name="<?= htmlspecialchars(mb_strtolower($product['name'])) ?>" data-sku="<?= htmlspecialchars(mb_strtolower($product['sku'] ?? '')) ?>">
+                    <td>
+                        <?php $thumb = Product::imageUrl($product); ?>
+                        <?php if ($thumb): ?>
+                            <img src="<?= htmlspecialchars($thumb) ?>" alt="" class="rounded border" style="width:40px;height:40px;object-fit:cover;">
+                        <?php else: ?>
+                            <span class="d-inline-flex align-items-center justify-content-center rounded border bg-light text-secondary" style="width:40px;height:40px;">
+                                <i class="bi bi-image"></i>
+                            </span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= htmlspecialchars($product['name']) ?></td>
                     <td><?= htmlspecialchars($product['sku'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($product['category'] ?? '—') ?></td>
@@ -135,7 +171,7 @@ sort($categories);
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="8" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="9" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

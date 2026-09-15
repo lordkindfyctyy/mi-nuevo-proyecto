@@ -15,7 +15,7 @@ $productsJson = json_encode(array_map(fn($p) => [
     'price' => (float) $p['price'],
     'stock' => (int) $p['stock_quantity'],
     'category' => $p['category'] ?? '',
-    'image' => $p['image_url'] ?? '',
+    'image' => Product::imageUrl($p) ?? '',
     'description' => $p['description'] ?? '',
 ], $products), JSON_UNESCAPED_UNICODE);
 

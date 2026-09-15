@@ -1,0 +1,10 @@
+# Uploaded files are user-supplied; never let this folder execute code.
+<FilesMatch "\.(php|phtml|php[0-9]?|phar|cgi|pl)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
