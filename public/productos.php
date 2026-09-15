@@ -87,6 +87,15 @@ sort($categories);
     </div>
 </div>
 
+<?php if ($products): ?>
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input type="search" id="product-search" class="form-control" placeholder="Buscar producto por nombre o SKU..." autocomplete="off">
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="table-responsive">
     <table class="table align-middle">
         <thead>
@@ -101,9 +110,9 @@ sort($categories);
                 <th class="text-end">Acciones</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="product-table-body">
             <?php foreach ($products as $product): ?>
-                <tr>
+                <tr data-name="<?= htmlspecialchars(mb_strtolower($product['name'])) ?>" data-sku="<?= htmlspecialchars(mb_strtolower($product['sku'] ?? '')) ?>">
                     <td><?= htmlspecialchars($product['name']) ?></td>
                     <td><?= htmlspecialchars($product['sku'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($product['category'] ?? '—') ?></td>
@@ -130,7 +139,31 @@ sort($categories);
             <?php endif; ?>
         </tbody>
     </table>
+    <p id="product-search-empty" class="text-center text-secondary py-4" hidden>No se encontraron productos con ese criterio.</p>
 </div>
+
+<?php if ($products): ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('product-search');
+    const rows = document.querySelectorAll('#product-table-body tr[data-name]');
+    const emptyMessage = document.getElementById('product-search-empty');
+
+    searchInput.addEventListener('input', () => {
+        const term = searchInput.value.trim().toLowerCase();
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const matches = !term || row.dataset.name.includes(term) || row.dataset.sku.includes(term);
+            row.hidden = !matches;
+            if (matches) visibleCount++;
+        });
+
+        emptyMessage.hidden = visibleCount > 0;
+    });
+});
+</script>
+<?php endif; ?>
 
 <?php endif; ?>
 
