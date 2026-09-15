@@ -42,6 +42,9 @@ require_once __DIR__ . '/tenant_context.php';
                             <a class="nav-link <?= in_array($currentPage, ['compras.php', 'comprar.php'], true) ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/compras.php">Compras</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?= $currentPage === 'reportes.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/reportes.php">Reportes</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'about.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/about.php">Acerca de</a>
                         </li>
                         <li class="nav-item">
