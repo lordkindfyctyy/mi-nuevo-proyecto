@@ -24,21 +24,11 @@ Sistema web multi-negocio (multi-tenant) para gestionar productos y registrar ve
    cd mi-nuevo-proyecto
    ```
 
-2. **Crea tu archivo de configuración**
+2. **Configuración**
 
-   ```bash
-   cp config/config.example.php config/config.php
-   ```
+   No hace falta nada para desarrollo local: `config/config.php` detecta que estás en `localhost` y usa automáticamente `root` sin contraseña contra la base `mi_nuevo_proyecto`.
 
-   Edita `config/config.php` y ajusta según tu entorno:
-
-   ```php
-   define('BASE_URL', 'http://localhost:8000'); // URL donde correrá el sitio
-   define('DB_HOST', 'localhost');
-   define('DB_NAME', 'mi_nuevo_proyecto');
-   define('DB_USER', 'root');
-   define('DB_PASS', '');
-   ```
+   Si tu MySQL local usa otro usuario/clave/puerto, copia `config/config.local.php.example` como `config/config.local.php` (ignorado por git) y ajusta ahí los valores que necesites. Para desplegar en un hosting como Hostinger, ver [`README_DESPLIEGUE.md`](README_DESPLIEGUE.md).
 
 3. **Crea la base de datos**
 
@@ -94,8 +84,8 @@ includes/
   header.php, footer.php  Layout compartido (navbar, Bootstrap 5)
   tenant_context.php      Sesión activa: negocio y usuario logueados
 config/
-  config.php              Constantes del entorno (NO se sube a git)
-  config.example.php      Plantilla de config.php
+  config.php              Detecta el entorno (local/producción) y define constantes
+  config.local.php.example Plantilla para overrides locales o de hosting (opcional)
   database.php             Conexión PDO a MySQL
 src/
   models/                 Tenant, User, Product, Sale (acceso a datos)
@@ -109,4 +99,4 @@ uploads/                  Archivos subidos por usuarios (ignorado en git)
 
 - `public/` es el único directorio que debe ser accesible desde el navegador; todo lo demás vive fuera del document root.
 - Todas las consultas por id de producto/venta están filtradas por `tenant_id` (ver `findForTenant()` en los modelos) para que un negocio nunca pueda ver o modificar datos de otro.
-- `config/config.php` está en `.gitignore` porque contiene credenciales de base de datos; usa `config/config.example.php` como plantilla.
+- `config/config.php` no contiene credenciales: detecta el entorno automáticamente y, en producción, las lee de variables de entorno (o de `config/config.local.php`, que sí está en `.gitignore`). Ver [`README_DESPLIEGUE.md`](README_DESPLIEGUE.md) para desplegar en Hostinger.

@@ -6,5 +6,5 @@
 !/public/uploads/.htaccess
 .env
 *.log
-/config/config.php
+/config/config.local.php
 /.claude/
