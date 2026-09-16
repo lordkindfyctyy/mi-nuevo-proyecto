@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Product.php';
 require_once __DIR__ . '/../src/models/Sale.php';
+require_once __DIR__ . '/../src/models/Tenant.php';
 requireLogin();
 
 $tenantId = currentTenantId();
@@ -24,9 +25,13 @@ if (isset($_GET['success'], $_GET['sale']) && $tenantId) {
     $lastSale = Sale::findForTenant((int) $_GET['sale'], $tenantId);
 }
 
+$tenant = $tenantId ? Tenant::find($tenantId) : null;
+$catalogUrl = $tenantId ? BASE_URL . '/catalogo.php?t=' . Tenant::getOrCreatePublicToken($tenantId) : null;
+
 $currentPage = basename($_SERVER['SCRIPT_NAME']);
 
 $navItems = [
+    ['label' => 'Compartir catálogo', 'icon' => 'bi-share', 'action' => 'share'],
     ['label' => 'Vender', 'href' => BASE_URL . '/vender.php', 'icon' => 'bi-cart3', 'match' => 'vender.php'],
     ['label' => 'Balance', 'href' => BASE_URL . '/reportes.php', 'icon' => 'bi-bar-chart-line', 'match' => 'reportes.php'],
     ['label' => 'Inventario', 'href' => BASE_URL . '/productos.php', 'icon' => 'bi-box-seam', 'match' => 'productos.php'],
@@ -37,6 +42,13 @@ $navItems = [
 function pos_render_nav(array $items, string $currentPage): void
 {
     foreach ($items as $item) {
+        if (($item['action'] ?? null) === 'share') {
+            echo '<button type="button" class="pos-nav-link border-0 bg-transparent text-start w-100" data-bs-toggle="modal" data-bs-target="#shareCatalogModal">';
+            echo '<i class="bi ' . htmlspecialchars($item['icon']) . '"></i> ' . htmlspecialchars($item['label']);
+            echo '</button>';
+            continue;
+        }
+
         if ($item['href'] === null) {
             echo '<span class="pos-nav-link disabled">';
             echo '<i class="bi ' . htmlspecialchars($item['icon']) . '"></i> ' . htmlspecialchars($item['label']);
@@ -181,6 +193,41 @@ function pos_render_nav(array $items, string $currentPage): void
         </div>
     </div>
 
+    <div class="modal fade" id="shareCatalogModal" tabindex="-1" aria-labelledby="shareCatalogModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="shareCatalogModalLabel">Compartir catálogo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <?php if (isset($_GET['share_success'])): ?>
+                        <div class="alert alert-success py-2">Número de WhatsApp actualizado.</div>
+                    <?php elseif (($_GET['share_error'] ?? '') === 'phone'): ?>
+                        <div class="alert alert-danger py-2">Ingresa un número de teléfono válido (mínimo 8 dígitos).</div>
+                    <?php endif; ?>
+
+                    <p class="text-secondary small">Comparte este enlace con tus clientes: podrán ver tus productos y el stock disponible en tiempo real.</p>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control form-control-sm" id="catalog-url-input" value="<?= htmlspecialchars($catalogUrl ?? '') ?>" readonly>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" id="copy-catalog-url-btn">Copiar</button>
+                    </div>
+                    <a href="<?= htmlspecialchars($catalogUrl ?? '') ?>" target="_blank" rel="noopener" class="small">Ver catálogo público</a>
+
+                    <hr>
+
+                    <h2 class="h6 fw-semibold">Número de WhatsApp para consultas</h2>
+                    <p class="text-secondary small mb-2">Tus clientes verán un botón de WhatsApp en el catálogo para escribirte directamente. Ingresa el número completo con código de país, solo números (ej. <code>573001234567</code>).</p>
+                    <form method="POST" action="<?= BASE_URL ?>/process/tenant_process.php" class="d-flex gap-2">
+                        <input type="hidden" name="action" value="update_whatsapp">
+                        <input type="tel" name="whatsapp_phone" class="form-control form-control-sm" placeholder="573001234567" value="<?= htmlspecialchars($tenant['whatsapp_phone'] ?? '') ?>">
+                        <button type="submit" class="btn btn-primary btn-sm text-nowrap">Guardar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <main class="pos-products">
         <?php if ($lastSale): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -259,6 +306,32 @@ function pos_render_nav(array $items, string $currentPage): void
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+    const shareModalEl = document.getElementById('shareCatalogModal');
+    if (shareModalEl) {
+        const shareModal = new bootstrap.Modal(shareModalEl);
+
+        const copyBtn = document.getElementById('copy-catalog-url-btn');
+        const urlInput = document.getElementById('catalog-url-input');
+        if (copyBtn && urlInput) {
+            copyBtn.addEventListener('click', () => {
+                urlInput.select();
+                navigator.clipboard?.writeText(urlInput.value).then(() => {
+                    copyBtn.textContent = '¡Copiado!';
+                    setTimeout(() => { copyBtn.textContent = 'Copiar'; }, 1500);
+                }).catch(() => {
+                    document.execCommand('copy');
+                });
+            });
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('share_success') || params.has('share_error')) {
+            shareModal.show();
+        }
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     const products = <?= $productsJson ?: '[]' ?>;
     const cart = new Map();
