@@ -75,7 +75,8 @@ $whatsappGeneralUrl = $whatsappDigits
         .catalog-card-price { font-weight: 700; color: #00b28f; font-size: 1.05rem; }
         .catalog-card-name { font-weight: 600; font-size: .88rem; line-height: 1.25; }
         .catalog-card-sku { font-size: .72rem; color: #6b7280; }
-        .catalog-ask-btn { margin-top: auto; }
+        .catalog-card-actions { margin-top: auto; display: flex; gap: .35rem; padding-top: .35rem; }
+        .catalog-in-cart-note { font-size: .72rem; color: #00b28f; font-weight: 600; }
         .catalog-whatsapp-fab {
             position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 20;
             width: 3.5rem; height: 3.5rem; border-radius: 50%; background: #25D366; color: #fff;
@@ -83,13 +84,26 @@ $whatsappGeneralUrl = $whatsappDigits
             box-shadow: 0 .5rem 1rem rgba(0,0,0,.2); text-decoration: none;
         }
         .catalog-whatsapp-fab:hover { background: #1ebe5a; color: #fff; }
+        .cart-item-row { display: flex; align-items: center; gap: .6rem; padding: .6rem 0; border-bottom: 1px solid #f1f2f4; }
+        .cart-item-name { font-weight: 600; font-size: .85rem; }
+        .cart-item-price { font-size: .75rem; color: #6b7280; }
+        .cart-qty { display: flex; align-items: center; gap: .35rem; }
+        .cart-qty button { width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; }
     </style>
 </head>
 <body>
     <div class="catalog-header">
-        <div class="catalog-body py-0">
-            <h1 class="h5 fw-bold mb-0"><?= htmlspecialchars($tenant['name']) ?></h1>
-            <div class="text-secondary small">Catálogo en vivo · <span id="last-updated">actualizando...</span></div>
+        <div class="catalog-body py-0 d-flex align-items-center justify-content-between gap-3">
+            <div class="min-w-0">
+                <h1 class="h5 fw-bold mb-0 text-truncate"><?= htmlspecialchars($tenant['name']) ?></h1>
+                <div class="text-secondary small">Catálogo en vivo · <span id="last-updated">actualizando...</span></div>
+            </div>
+            <?php if ($products): ?>
+            <button type="button" class="btn btn-primary position-relative flex-shrink-0" data-bs-toggle="modal" data-bs-target="#cartModal">
+                <i class="bi bi-cart3"></i>
+                <span class="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle" id="cart-badge" hidden>0</span>
+            </button>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -113,10 +127,37 @@ $whatsappGeneralUrl = $whatsappDigits
         </a>
     <?php endif; ?>
 
+    <div class="modal fade" id="cartModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tu pedido</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="cart-empty-msg" class="text-secondary text-center py-3">Todavía no agregaste productos.</div>
+                    <div id="cart-items-list"></div>
+                    <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-3 mt-2" id="cart-total-row" hidden>
+                        <span>Total</span>
+                        <span id="cart-total-amount">$0.00</span>
+                    </div>
+                </div>
+                <div class="modal-footer flex-column align-items-stretch">
+                    <a href="#" id="whatsapp-order-btn" target="_blank" rel="noopener" class="btn btn-success w-100 disabled" tabindex="-1" aria-disabled="true">
+                        <i class="bi bi-whatsapp"></i> Enviar pedido por WhatsApp
+                    </a>
+                    <p id="whatsapp-order-hint" class="text-secondary small text-center mb-0 mt-2" hidden>Este negocio todavía no tiene WhatsApp configurado. Contáctalo directamente.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         let products = <?= $productsJson ?: '[]' ?>;
         const whatsappDigits = <?= json_encode($whatsappDigits ?: '') ?>;
+        const cartStorageKey = 'catalog_cart_' + <?= json_encode($token) ?>;
         let activeCategory = 'all';
 
         const searchInput = document.getElementById('catalog-search');
@@ -124,8 +165,40 @@ $whatsappGeneralUrl = $whatsappDigits
         const gridEl = document.getElementById('catalog-grid');
         const noResultsEl = document.getElementById('catalog-no-results');
         const lastUpdatedEl = document.getElementById('last-updated');
+        const cartBadgeEl = document.getElementById('cart-badge');
+        const cartEmptyMsgEl = document.getElementById('cart-empty-msg');
+        const cartItemsListEl = document.getElementById('cart-items-list');
+        const cartTotalRowEl = document.getElementById('cart-total-row');
+        const cartTotalAmountEl = document.getElementById('cart-total-amount');
+        const whatsappOrderBtn = document.getElementById('whatsapp-order-btn');
+        const whatsappOrderHint = document.getElementById('whatsapp-order-hint');
 
         if (!gridEl) return;
+
+        const cart = new Map();
+
+        function loadCart() {
+            try {
+                const raw = localStorage.getItem(cartStorageKey);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                Object.entries(saved).forEach(([id, quantity]) => {
+                    cart.set(Number(id), { quantity });
+                });
+            } catch (e) {
+                // localStorage no disponible (modo privado, etc.) — seguimos sin carrito persistente.
+            }
+        }
+
+        function saveCart() {
+            try {
+                const plain = {};
+                cart.forEach((entry, id) => { plain[id] = entry.quantity; });
+                localStorage.setItem(cartStorageKey, JSON.stringify(plain));
+            } catch (e) {
+                // Ignorar si no se puede persistir.
+            }
+        }
 
         function formatMoney(value) {
             return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -135,6 +208,53 @@ $whatsappGeneralUrl = $whatsappDigits
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        function findProduct(id) {
+            return products.find((p) => p.id === id);
+        }
+
+        function cartQuantity(id) {
+            return cart.get(id)?.quantity || 0;
+        }
+
+        function reconcileCartWithStock() {
+            cart.forEach((entry, id) => {
+                const product = findProduct(id);
+                if (!product || product.stock <= 0) {
+                    cart.delete(id);
+                    return;
+                }
+                if (entry.quantity > product.stock) {
+                    entry.quantity = product.stock;
+                }
+            });
+            saveCart();
+        }
+
+        function addToCart(id) {
+            const product = findProduct(id);
+            if (!product) return;
+            const current = cartQuantity(id);
+            if (current >= product.stock) return;
+            cart.set(id, { quantity: current + 1 });
+            saveCart();
+            renderGrid();
+            renderCart();
+        }
+
+        function updateQuantity(id, quantity) {
+            const product = findProduct(id);
+            if (!product) return;
+            quantity = Math.max(0, Math.min(quantity, product.stock));
+            if (quantity === 0) {
+                cart.delete(id);
+            } else {
+                cart.set(id, { quantity });
+            }
+            saveCart();
+            renderGrid();
+            renderCart();
         }
 
         function renderFilters() {
@@ -169,6 +289,8 @@ $whatsappGeneralUrl = $whatsappDigits
 
             filtered.forEach((product) => {
                 const inStock = product.stock > 0;
+                const inCartQty = cartQuantity(product.id);
+                const maxedOut = inCartQty >= product.stock;
                 const card = document.createElement('div');
                 card.className = 'catalog-card';
                 const askUrl = whatsappDigits
@@ -183,11 +305,77 @@ $whatsappGeneralUrl = $whatsappDigits
                         <div class="catalog-card-price">${formatMoney(product.price)}</div>
                         <div class="catalog-card-name">${escapeHtml(product.name)}</div>
                         ${product.sku ? `<div class="catalog-card-sku">SKU: ${escapeHtml(product.sku)}</div>` : ''}
-                        ${askUrl ? `<a href="${askUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success catalog-ask-btn"><i class="bi bi-whatsapp"></i> Preguntar</a>` : ''}
+                        ${inCartQty > 0 ? `<div class="catalog-in-cart-note">En tu pedido: ${inCartQty}</div>` : ''}
+                        <div class="catalog-card-actions">
+                            <button type="button" class="btn btn-sm btn-primary flex-grow-1 add-to-cart-btn" ${!inStock || maxedOut ? 'disabled' : ''}>Agregar</button>
+                            ${askUrl ? `<a href="${askUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="Preguntar por WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
+                        </div>
                     </div>
                 `;
+                card.querySelector('.add-to-cart-btn').addEventListener('click', () => addToCart(product.id));
                 gridEl.appendChild(card);
             });
+        }
+
+        function renderCart() {
+            let totalItems = 0;
+            let total = 0;
+            cartItemsListEl.innerHTML = '';
+
+            cart.forEach((entry, id) => {
+                const product = findProduct(id);
+                if (!product) return;
+                totalItems += entry.quantity;
+                const subtotal = product.price * entry.quantity;
+                total += subtotal;
+
+                const row = document.createElement('div');
+                row.className = 'cart-item-row';
+                row.innerHTML = `
+                    <div class="flex-grow-1" style="min-width:0;">
+                        <div class="cart-item-name text-truncate">${escapeHtml(product.name)}</div>
+                        <div class="cart-item-price">${formatMoney(product.price)} c/u</div>
+                    </div>
+                    <div class="cart-qty">
+                        <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
+                        <span class="fw-semibold" style="min-width:1.4rem;text-align:center;">${entry.quantity}</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm inc-btn" ${entry.quantity >= product.stock ? 'disabled' : ''}>+</button>
+                    </div>
+                    <div class="text-end fw-semibold" style="min-width:4.5rem;">${formatMoney(subtotal)}</div>
+                `;
+                row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(id, entry.quantity - 1));
+                row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(id, entry.quantity + 1));
+                cartItemsListEl.appendChild(row);
+            });
+
+            const hasItems = totalItems > 0;
+            cartEmptyMsgEl.hidden = hasItems;
+            cartTotalRowEl.hidden = !hasItems;
+            cartTotalAmountEl.textContent = formatMoney(total);
+
+            if (cartBadgeEl) {
+                cartBadgeEl.hidden = totalItems === 0;
+                cartBadgeEl.textContent = totalItems;
+            }
+
+            const canOrder = hasItems && whatsappDigits;
+            whatsappOrderBtn.classList.toggle('disabled', !canOrder);
+            whatsappOrderBtn.setAttribute('aria-disabled', canOrder ? 'false' : 'true');
+            whatsappOrderBtn.tabIndex = canOrder ? 0 : -1;
+            whatsappOrderHint.hidden = !hasItems || !!whatsappDigits;
+
+            if (canOrder) {
+                const lines = ['Hola, quiero hacer un pedido:'];
+                cart.forEach((entry, id) => {
+                    const product = findProduct(id);
+                    if (!product) return;
+                    lines.push(`- ${product.name} x${entry.quantity} = ${formatMoney(product.price * entry.quantity)}`);
+                });
+                lines.push(`Total: ${formatMoney(total)}`);
+                whatsappOrderBtn.href = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(lines.join('\n'))}`;
+            } else {
+                whatsappOrderBtn.href = '#';
+            }
         }
 
         function refreshFromServer() {
@@ -197,8 +385,10 @@ $whatsappGeneralUrl = $whatsappDigits
                 .then((res) => res.json())
                 .then((data) => {
                     products = data.products || [];
+                    reconcileCartWithStock();
                     renderFilters();
                     renderGrid();
+                    renderCart();
                     lastUpdatedEl.textContent = 'actualizado ' + new Date().toLocaleTimeString('es-CO');
                 })
                 .catch(() => {
@@ -208,8 +398,11 @@ $whatsappGeneralUrl = $whatsappDigits
 
         searchInput.addEventListener('input', renderGrid);
 
+        loadCart();
+        reconcileCartWithStock();
         renderFilters();
         renderGrid();
+        renderCart();
         lastUpdatedEl.textContent = 'actualizado ' + new Date().toLocaleTimeString('es-CO');
         setInterval(refreshFromServer, 20000);
     });
