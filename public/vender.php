@@ -156,6 +156,16 @@ function pos_render_nav(array $items, string $currentPage): void
         .pos-cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.25rem; margin-bottom: .75rem; }
         .pos-continue-btn { width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600; border-radius: .75rem; }
         .pos-cart-empty { text-align: center; color: #9ca3af; padding: 2rem 1rem; }
+
+        #voice-btn.listening {
+            background: var(--color-primary); color: #fff; border-color: var(--color-primary);
+            animation: voice-pulse 1.5s infinite;
+        }
+        @keyframes voice-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 178, 143, .5); }
+            70% { box-shadow: 0 0 0 .6rem rgba(0, 178, 143, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 178, 143, 0); }
+        }
     </style>
 </head>
 <body class="pos-page">
@@ -228,6 +238,30 @@ function pos_render_nav(array $items, string $currentPage): void
         </div>
     </div>
 
+    <div class="modal fade" id="voiceConfirmModal" tabindex="-1" aria-labelledby="voiceConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="voiceConfirmModalLabel">Confirmar venta por voz</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Confirmas registrar esta venta?</p>
+                    <div id="voice-confirm-summary" class="small"></div>
+                    <div class="d-flex justify-content-between fw-bold border-top pt-2 mt-2">
+                        <span>Total</span>
+                        <span id="voice-confirm-total">$0.00</span>
+                    </div>
+                    <p class="text-secondary small mt-3 mb-0">Podés decir <strong>&laquo;confirmar&raquo;</strong> para registrarla o <strong>&laquo;cancelar&raquo;</strong> para volver.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" id="voice-cancel-btn">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="voice-confirm-btn">Sí, registrar venta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <main class="pos-products">
         <?php if ($lastSale): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -256,7 +290,11 @@ function pos_render_nav(array $items, string $currentPage): void
             <div class="input-group input-group-lg">
                 <span class="input-group-text bg-white"><i class="bi bi-upc-scan"></i></span>
                 <input type="search" id="product-search" class="form-control" placeholder="Buscar por nombre o SKU / código de barras..." autocomplete="off" autofocus>
+                <button type="button" id="voice-btn" class="btn btn-outline-secondary" title="Comando de voz">
+                    <i class="bi bi-mic" id="voice-icon"></i>
+                </button>
             </div>
+            <div id="voice-feedback" class="small text-secondary mt-1" hidden></div>
             <div class="pos-category-filters" id="category-filters"></div>
             <div class="pos-product-grid" id="product-grid"></div>
             <p id="no-results" class="text-center text-secondary py-5" hidden>No se encontraron productos.</p>
@@ -423,17 +461,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function addToCart(id) {
+    function addToCart(id, qty = 1) {
         const product = findProduct(id);
-        if (!product || availableStock(product) <= 0) return;
+        if (!product) return 0;
+        const toAdd = Math.min(qty, availableStock(product));
+        if (toAdd <= 0) return 0;
         const existing = cart.get(id);
         if (existing) {
-            existing.quantity += 1;
+            existing.quantity += toAdd;
         } else {
-            cart.set(id, { product, quantity: 1 });
+            cart.set(id, { product, quantity: toAdd });
         }
         renderAll();
         focusSearch();
+        return toAdd;
     }
 
     function updateQuantity(id, quantity) {
@@ -546,6 +587,259 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCategoryFilters();
     renderAll();
     focusSearch();
+
+    // --- Comandos de voz ---
+    const voiceBtn = document.getElementById('voice-btn');
+    const voiceIcon = document.getElementById('voice-icon');
+    const voiceFeedbackEl = document.getElementById('voice-feedback');
+    const voiceConfirmModalEl = document.getElementById('voiceConfirmModal');
+    const voiceConfirmSummaryEl = document.getElementById('voice-confirm-summary');
+    const voiceConfirmTotalEl = document.getElementById('voice-confirm-total');
+    const voiceConfirmBtn = document.getElementById('voice-confirm-btn');
+    const voiceCancelBtn = document.getElementById('voice-cancel-btn');
+    const saleForm = document.getElementById('sale-form');
+
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionCtor) {
+        voiceBtn.disabled = true;
+        voiceBtn.title = 'Tu navegador no soporta comandos de voz (usa Chrome o Edge).';
+    } else {
+        const recognition = new SpeechRecognitionCtor();
+        recognition.lang = 'es-ES';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        const voiceConfirmModal = bootstrap.Modal.getOrCreateInstance(voiceConfirmModalEl);
+        let listening = false;
+        let awaitingConfirmation = false;
+
+        const numberWords = {
+            un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
+            siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13,
+            catorce: 14, quince: 15, veinte: 20,
+        };
+
+        function normalizeVoiceText(text) {
+            return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        }
+
+        function showVoiceFeedback(message, tone = 'muted') {
+            voiceFeedbackEl.hidden = false;
+            voiceFeedbackEl.textContent = message;
+            voiceFeedbackEl.className = 'small mt-1 text-' + (tone === 'error' ? 'danger' : tone === 'success' ? 'success' : 'secondary');
+        }
+
+        function speak(text) {
+            if (!window.speechSynthesis) return;
+            try {
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = 'es-ES';
+                window.speechSynthesis.speak(utter);
+            } catch (e) {
+                // Síntesis de voz no disponible: seguimos solo con feedback visual.
+            }
+        }
+
+        function extractQuantity(text) {
+            const digitMatch = text.match(/^(\d+)\s+(.*)$/);
+            if (digitMatch) {
+                return { quantity: parseInt(digitMatch[1], 10), rest: digitMatch[2] };
+            }
+            const words = text.split(/\s+/);
+            if (words.length > 1 && numberWords[words[0]] !== undefined) {
+                return { quantity: numberWords[words[0]], rest: words.slice(1).join(' ') };
+            }
+            return { quantity: 1, rest: text };
+        }
+
+        function findBestProductMatch(term) {
+            const cleaned = term.replace(/^(el|la|los|las|de|un|una|unos|unas)\s+/, '').trim();
+            if (!cleaned) return null;
+
+            let best = null;
+            let bestScore = 0;
+            products.forEach((product) => {
+                const name = normalizeVoiceText(product.name);
+                const sku = normalizeVoiceText(product.sku || '');
+                let score = 0;
+                if (sku && sku === cleaned) {
+                    score = 100;
+                } else if (name === cleaned) {
+                    score = 90;
+                } else if (name.includes(cleaned)) {
+                    score = 70;
+                } else {
+                    const termWords = cleaned.split(/\s+/);
+                    const nameWords = name.split(/\s+/);
+                    const overlap = termWords.filter((w) => nameWords.includes(w)).length;
+                    if (overlap > 0) score = 40 + overlap * 5;
+                }
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = product;
+                }
+            });
+            return bestScore >= 40 ? best : null;
+        }
+
+        function voiceCartSummary() {
+            const lines = [];
+            let total = 0;
+            cart.forEach(({ product, quantity }) => {
+                total += product.price * quantity;
+                lines.push(`${product.name} x${quantity}`);
+            });
+            return { lines, total };
+        }
+
+        function stopListening() {
+            listening = false;
+            try { recognition.stop(); } catch (e) { /* ya estaba detenido */ }
+            voiceBtn.classList.remove('listening');
+            voiceIcon.className = 'bi bi-mic';
+        }
+
+        function openVoiceConfirm() {
+            if (cart.size === 0) {
+                showVoiceFeedback('El carrito está vacío. Agregá productos antes de confirmar.', 'error');
+                speak('El carrito está vacío.');
+                return;
+            }
+            const { lines, total } = voiceCartSummary();
+            voiceConfirmSummaryEl.innerHTML = lines.map((line) => `<div>${escapeHtml(line)}</div>`).join('');
+            voiceConfirmTotalEl.textContent = formatMoney(total);
+            awaitingConfirmation = true;
+            voiceConfirmModal.show();
+            speak(`Vas a registrar una venta por ${formatMoney(total)}. Decí confirmar para registrarla, o cancelar.`);
+        }
+
+        function finalizeVoiceSale() {
+            awaitingConfirmation = false;
+            voiceConfirmModal.hide();
+            stopListening();
+            saleForm.requestSubmit();
+        }
+
+        function cancelVoiceConfirm() {
+            awaitingConfirmation = false;
+            voiceConfirmModal.hide();
+            showVoiceFeedback('Confirmación cancelada.', 'muted');
+        }
+
+        function handleAddCommand(rest) {
+            const { quantity, rest: term } = extractQuantity(normalizeVoiceText(rest));
+            const product = findBestProductMatch(term);
+            if (!product) {
+                showVoiceFeedback(`No encontré ningún producto que coincida con "${term}".`, 'error');
+                speak(`No encontré ningún producto que coincida con ${term}.`);
+                return;
+            }
+            const added = addToCart(product.id, quantity);
+            if (added <= 0) {
+                showVoiceFeedback(`${product.name} no tiene stock disponible.`, 'error');
+                speak(`${product.name} no tiene stock disponible.`);
+            } else if (added < quantity) {
+                showVoiceFeedback(`Solo había stock para agregar ${added} de ${product.name}.`, 'error');
+                speak(`Solo agregué ${added} de ${product.name} por falta de stock.`);
+            } else {
+                showVoiceFeedback(`Agregado: ${product.name} x${added}.`, 'success');
+                speak(`Agregué ${added} de ${product.name}.`);
+            }
+        }
+
+        function handleSearchCommand(term) {
+            searchInput.value = term;
+            renderProducts();
+            showVoiceFeedback(`Mostrando resultados para "${term}".`, 'muted');
+        }
+
+        function handleVoiceCommand(rawText) {
+            const text = normalizeVoiceText(rawText);
+            if (!text) return;
+
+            if (awaitingConfirmation) {
+                if (/^(si|sí|confirmar|confirmar venta|registrar venta)\b/.test(text)) {
+                    finalizeVoiceSale();
+                } else if (/^(no|cancelar)\b/.test(text)) {
+                    cancelVoiceConfirm();
+                } else {
+                    showVoiceFeedback('Decí "confirmar" para registrar la venta o "cancelar" para volver.', 'muted');
+                }
+                return;
+            }
+
+            if (/^(confirmar( venta)?|registrar venta|finalizar venta)\b/.test(text)) {
+                openVoiceConfirm();
+                return;
+            }
+
+            const addMatch = text.match(/^(agregar|anadir|agrega|pon|anade)\s+(.+)$/);
+            if (addMatch) {
+                handleAddCommand(addMatch[2]);
+                return;
+            }
+
+            const searchMatch = text.match(/^(buscar|busca)\s+(.+)$/);
+            if (searchMatch) {
+                handleSearchCommand(searchMatch[2]);
+                return;
+            }
+
+            handleAddCommand(text);
+        }
+
+        recognition.addEventListener('start', () => {
+            listening = true;
+            voiceBtn.classList.add('listening');
+            voiceIcon.className = 'bi bi-mic-fill';
+            showVoiceFeedback('Escuchando... decí, por ejemplo, "agregar dos arroz".', 'muted');
+        });
+
+        recognition.addEventListener('result', (event) => {
+            const result = event.results[event.results.length - 1];
+            if (!result.isFinal) return;
+            handleVoiceCommand(result[0].transcript);
+        });
+
+        recognition.addEventListener('error', (event) => {
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                listening = false;
+                voiceBtn.classList.remove('listening');
+                voiceIcon.className = 'bi bi-mic';
+                showVoiceFeedback('Permiso de micrófono denegado.', 'error');
+            }
+            // Otros errores (silencio, red) se recuperan solos con el reinicio en "end".
+        });
+
+        recognition.addEventListener('end', () => {
+            if (listening) {
+                try { recognition.start(); } catch (e) { /* ya estaba iniciado */ }
+            } else {
+                voiceBtn.classList.remove('listening');
+                voiceIcon.className = 'bi bi-mic';
+            }
+        });
+
+        voiceBtn.addEventListener('click', () => {
+            if (listening) {
+                stopListening();
+                showVoiceFeedback('Comando de voz detenido.', 'muted');
+            } else {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    // el reconocimiento ya estaba en marcha
+                }
+            }
+        });
+
+        voiceConfirmBtn.addEventListener('click', finalizeVoiceSale);
+        voiceCancelBtn.addEventListener('click', cancelVoiceConfirm);
+        voiceConfirmModalEl.addEventListener('hidden.bs.modal', () => {
+            awaitingConfirmation = false;
+        });
+    }
 });
 </script>
 </body>
