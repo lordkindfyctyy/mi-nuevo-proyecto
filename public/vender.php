@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) {
             existing.quantity += toAdd;
         } else {
-            cart.set(id, { product, quantity: toAdd });
+            cart.set(id, { product, quantity: toAdd, unitPrice: product.price });
         }
         renderAll();
         focusSearch();
@@ -489,6 +489,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAll();
     }
 
+    function updateUnitPrice(id, price) {
+        const entry = cart.get(id);
+        if (!entry) return;
+        if (isNaN(price) || price < 0) {
+            price = entry.unitPrice;
+        }
+        entry.unitPrice = price;
+        renderAll();
+    }
+
     function removeFromCart(id) {
         cart.delete(id);
         renderAll();
@@ -501,15 +511,19 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = !hasItems;
 
         let total = 0;
-        cart.forEach(({ product, quantity }) => {
-            const subtotal = product.price * quantity;
+        cart.forEach(({ product, quantity, unitPrice }) => {
+            const subtotal = unitPrice * quantity;
             total += subtotal;
             const row = document.createElement('div');
             row.className = 'cart-item';
             row.innerHTML = `
                 <div class="flex-grow-1" style="min-width:0;">
                     <div class="cart-item-name text-truncate">${escapeHtml(product.name)}</div>
-                    <div class="cart-item-price">${formatMoney(product.price)} c/u</div>
+                    <div class="d-flex align-items-center gap-1 cart-item-price">
+                        <span>$</span>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm price-input" value="${unitPrice}" style="width:5.5rem;padding:.1rem .35rem;">
+                        <span>c/u</span>
+                    </div>
                 </div>
                 <div class="cart-qty">
                     <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
@@ -522,6 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - 1));
             row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + 1));
             row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(product.id));
+            row.querySelector('.price-input').addEventListener('change', (e) => updateUnitPrice(product.id, parseFloat(e.target.value)));
             cartListEl.appendChild(row);
         });
 
@@ -529,12 +544,18 @@ document.addEventListener('DOMContentLoaded', () => {
         submitTotalEl.textContent = formatMoney(total);
 
         cartInputsEl.innerHTML = '';
-        cart.forEach(({ product, quantity }) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = `quantity[${product.id}]`;
-            input.value = quantity;
-            cartInputsEl.appendChild(input);
+        cart.forEach(({ product, quantity, unitPrice }) => {
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'hidden';
+            qtyInput.name = `quantity[${product.id}]`;
+            qtyInput.value = quantity;
+            cartInputsEl.appendChild(qtyInput);
+
+            const priceInput = document.createElement('input');
+            priceInput.type = 'hidden';
+            priceInput.name = `price[${product.id}]`;
+            priceInput.value = unitPrice;
+            cartInputsEl.appendChild(priceInput);
         });
     }
 
@@ -705,8 +726,8 @@ document.addEventListener('DOMContentLoaded', () => {
         function voiceCartSummary() {
             const lines = [];
             let total = 0;
-            cart.forEach(({ product, quantity }) => {
-                total += product.price * quantity;
+            cart.forEach(({ product, quantity, unitPrice }) => {
+                total += unitPrice * quantity;
                 lines.push(`${product.name} x${quantity}`);
             });
             return { lines, total };

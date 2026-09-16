@@ -18,6 +18,7 @@ if (!$tenantId || !$userId) {
 }
 
 $quantities = $_POST['quantity'] ?? [];
+$customPrices = $_POST['price'] ?? [];
 $items = [];
 
 foreach ($quantities as $productId => $qty) {
@@ -36,10 +37,22 @@ foreach ($quantities as $productId => $qty) {
         exit;
     }
 
+    // El vendedor puede ajustar el precio de venta desde la canasta (ej.
+    // descuentos o redondeos); si no manda un precio válido, se usa el de
+    // catálogo. Siempre se re-valida contra 0 para no aceptar precios
+    // negativos.
+    $unitPrice = (float) $product['price'];
+    if (isset($customPrices[$productId]) && is_numeric($customPrices[$productId])) {
+        $customPrice = (float) $customPrices[$productId];
+        if ($customPrice >= 0) {
+            $unitPrice = $customPrice;
+        }
+    }
+
     $items[] = [
         'product_id' => (int) $product['id'],
         'quantity' => $qty,
-        'unit_price' => (float) $product['price'],
+        'unit_price' => $unitPrice,
     ];
 }
 
