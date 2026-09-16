@@ -613,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const voiceConfirmModal = bootstrap.Modal.getOrCreateInstance(voiceConfirmModalEl);
         let listening = false;
         let awaitingConfirmation = false;
+        let isSpeaking = false;
 
         const numberWords = {
             un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
@@ -630,14 +631,32 @@ document.addEventListener('DOMContentLoaded', () => {
             voiceFeedbackEl.className = 'small mt-1 text-' + (tone === 'error' ? 'danger' : tone === 'success' ? 'success' : 'secondary');
         }
 
+        // Pausa el reconocimiento mientras el asistente habla, para que el
+        // micrófono no se escuche a sí mismo (eso generaba comandos falsos
+        // y errores por tener grabación y reproducción de audio a la vez).
         function speak(text) {
             if (!window.speechSynthesis) return;
+
+            const resumeListening = () => {
+                isSpeaking = false;
+                if (listening) {
+                    try { recognition.start(); } catch (e) { /* ya estaba iniciado */ }
+                }
+            };
+
             try {
+                isSpeaking = true;
+                if (listening) {
+                    try { recognition.stop(); } catch (e) { /* ya estaba detenido */ }
+                }
+
                 const utter = new SpeechSynthesisUtterance(text);
                 utter.lang = 'es-ES';
+                utter.onend = resumeListening;
+                utter.onerror = resumeListening;
                 window.speechSynthesis.speak(utter);
             } catch (e) {
-                // Síntesis de voz no disponible: seguimos solo con feedback visual.
+                resumeListening();
             }
         }
 
@@ -695,6 +714,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function stopListening() {
             listening = false;
+            isSpeaking = false;
+            window.speechSynthesis?.cancel();
             try { recognition.stop(); } catch (e) { /* ya estaba detenido */ }
             voiceBtn.classList.remove('listening');
             voiceIcon.className = 'bi bi-mic';
@@ -813,9 +834,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         recognition.addEventListener('end', () => {
-            if (listening) {
+            if (listening && !isSpeaking) {
+                // Si isSpeaking es true, es speak() quien reinicia el
+                // reconocimiento cuando termine de hablar (evita el
+                // reinicio duplicado y que se escuche a sí mismo).
                 try { recognition.start(); } catch (e) { /* ya estaba iniciado */ }
-            } else {
+            } else if (!listening) {
                 voiceBtn.classList.remove('listening');
                 voiceIcon.className = 'bi bi-mic';
             }
