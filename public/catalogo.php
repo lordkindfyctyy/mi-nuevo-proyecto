@@ -38,6 +38,7 @@ $productsData = array_map(fn($p) => [
     'price' => (float) $p['price'],
     'stock' => (int) $p['stock_quantity'],
     'category' => $p['category'] ?? '',
+    'brand' => $p['brand'] ?? '',
     'image' => Product::imageUrl($p) ?? '',
     'description' => $p['description'] ?? '',
 ], $products);
@@ -66,6 +67,9 @@ $whatsappGeneralUrl = $whatsappDigits
         body { margin: 0; background: #f1f2f4; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
         .catalog-header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 1rem; position: sticky; top: 0; z-index: 10; }
         .catalog-body { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+        .catalog-search-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .catalog-search-row .input-group { flex: 1 1 220px; }
+        .catalog-brand-select { flex: 0 1 180px; min-width: 140px; }
         .catalog-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0 1rem; }
         .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
         .catalog-card { background: #fff; border: 1px solid #e5e7eb; border-radius: .75rem; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; transition: box-shadow .15s; }
@@ -115,9 +119,12 @@ $whatsappGeneralUrl = $whatsappDigits
         <?php if (!$products): ?>
             <p class="text-center text-secondary py-5">Este negocio todavía no tiene productos publicados.</p>
         <?php else: ?>
-            <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input type="search" id="catalog-search" class="form-control" placeholder="Buscar producto..." autocomplete="off">
+            <div class="catalog-search-row">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="search" id="catalog-search" class="form-control" placeholder="Buscar producto..." autocomplete="off">
+                </div>
+                <select id="catalog-brand-filter" class="form-select catalog-brand-select"></select>
             </div>
             <div class="catalog-filters" id="catalog-filters"></div>
             <div class="catalog-grid" id="catalog-grid"></div>
@@ -218,8 +225,10 @@ $whatsappGeneralUrl = $whatsappDigits
         const whatsappDigits = <?= json_encode($whatsappDigits ?: '') ?>;
         const cartStorageKey = 'catalog_cart_' + <?= json_encode($token) ?>;
         let activeCategory = 'all';
+        let activeBrand = 'all';
 
         const searchInput = document.getElementById('catalog-search');
+        const brandFilterEl = document.getElementById('catalog-brand-filter');
         const filtersEl = document.getElementById('catalog-filters');
         const gridEl = document.getElementById('catalog-grid');
         const noResultsEl = document.getElementById('catalog-no-results');
@@ -371,12 +380,37 @@ $whatsappGeneralUrl = $whatsappDigits
             });
         }
 
+        function renderBrandOptions() {
+            const brands = Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort();
+
+            if (activeBrand !== 'all' && !brands.includes(activeBrand)) {
+                activeBrand = 'all';
+            }
+
+            brandFilterEl.hidden = brands.length === 0;
+            brandFilterEl.innerHTML = '';
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Todas las marcas';
+            brandFilterEl.appendChild(allOption);
+
+            brands.forEach((brand) => {
+                const option = document.createElement('option');
+                option.value = brand;
+                option.textContent = brand;
+                brandFilterEl.appendChild(option);
+            });
+
+            brandFilterEl.value = activeBrand;
+        }
+
         function renderGrid() {
             const term = searchInput.value.trim().toLowerCase();
             const filtered = products.filter((p) => {
                 const matchesTerm = !term || p.name.toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term);
                 const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
-                return matchesTerm && matchesCategory;
+                const matchesBrand = activeBrand === 'all' || p.brand === activeBrand;
+                return matchesTerm && matchesCategory && matchesBrand;
             });
 
             gridEl.innerHTML = '';
@@ -434,6 +468,7 @@ $whatsappGeneralUrl = $whatsappDigits
 
             const metaParts = [];
             if (product.sku) metaParts.push('SKU: ' + product.sku);
+            if (product.brand) metaParts.push(product.brand);
             if (product.category) metaParts.push(product.category);
             detailMetaEl.textContent = metaParts.join(' · ');
             detailMetaEl.hidden = metaParts.length === 0;
@@ -527,6 +562,7 @@ $whatsappGeneralUrl = $whatsappDigits
                     products = data.products || [];
                     reconcileCartWithStock();
                     renderFilters();
+                    renderBrandOptions();
                     renderGrid();
                     renderCart();
                     if (currentDetailProductId !== null && detailModalEl.classList.contains('show')) {
@@ -540,6 +576,11 @@ $whatsappGeneralUrl = $whatsappDigits
         }
 
         searchInput.addEventListener('input', renderGrid);
+
+        brandFilterEl.addEventListener('change', () => {
+            activeBrand = brandFilterEl.value;
+            renderGrid();
+        });
 
         detailAddBtn.addEventListener('click', () => {
             if (currentDetailProductId === null) return;
@@ -589,6 +630,7 @@ $whatsappGeneralUrl = $whatsappDigits
         loadCart();
         reconcileCartWithStock();
         renderFilters();
+        renderBrandOptions();
         renderGrid();
         renderCart();
         lastUpdatedEl.textContent = 'actualizado ' + new Date().toLocaleTimeString('es-CO');

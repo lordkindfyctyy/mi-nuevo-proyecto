@@ -14,6 +14,9 @@ if (isset($_GET['edit']) && $tenantId) {
 
 $categories = array_values(array_unique(array_filter(array_map(fn($p) => $p['category'], $products))));
 sort($categories);
+
+$brands = array_values(array_unique(array_filter(array_map(fn($p) => $p['brand'], $products))));
+sort($brands);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -78,6 +81,15 @@ sort($categories);
                     <?php endforeach; ?>
                 </datalist>
             </div>
+            <div class="col-md-4">
+                <label for="brand" class="form-label">Marca</label>
+                <input type="text" id="brand" name="brand" class="form-control" list="brand-suggestions" placeholder="Ej: Royal Canin" value="<?= htmlspecialchars($editing['brand'] ?? '') ?>">
+                <datalist id="brand-suggestions">
+                    <?php foreach ($brands as $brand): ?>
+                        <option value="<?= htmlspecialchars($brand) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+            </div>
             <div class="col-md-8">
                 <label for="imagen" class="form-label">Foto del producto</label>
                 <div class="d-flex align-items-center gap-3">
@@ -129,6 +141,7 @@ sort($categories);
                 <th>Nombre</th>
                 <th>SKU</th>
                 <th>Categoría</th>
+                <th>Marca</th>
                 <th class="text-end">Precio</th>
                 <th class="text-end">Costo</th>
                 <th class="text-end">Stock</th>
@@ -152,6 +165,7 @@ sort($categories);
                     <td><?= htmlspecialchars($product['name']) ?></td>
                     <td><?= htmlspecialchars($product['sku'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($product['category'] ?? '—') ?></td>
+                    <td><?= htmlspecialchars($product['brand'] ?? '—') ?></td>
                     <td class="text-end">$<?= number_format((float) $product['price'], 2) ?></td>
                     <td class="text-end">$<?= number_format((float) $product['cost'], 2) ?></td>
                     <td class="text-end">
@@ -171,7 +185,7 @@ sort($categories);
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="9" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="10" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

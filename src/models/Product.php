@@ -12,8 +12,8 @@ class Product
     public static function create(int $tenantId, string $name, float $price, array $data = []): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO products (tenant_id, name, sku, description, category, image_url, imagen, price, cost, stock_quantity)
-             VALUES (:tenant_id, :name, :sku, :description, :category, :image_url, :imagen, :price, :cost, :stock_quantity)'
+            'INSERT INTO products (tenant_id, name, sku, description, category, brand, image_url, imagen, price, cost, stock_quantity)
+             VALUES (:tenant_id, :name, :sku, :description, :category, :brand, :image_url, :imagen, :price, :cost, :stock_quantity)'
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
@@ -21,6 +21,7 @@ class Product
             'sku' => $data['sku'] ?? null,
             'description' => $data['description'] ?? null,
             'category' => $data['category'] ?? null,
+            'brand' => $data['brand'] ?? null,
             'image_url' => $data['image_url'] ?? null,
             'imagen' => $data['imagen'] ?? null,
             'price' => $price,
@@ -66,7 +67,7 @@ class Product
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'sku', 'description', 'category', 'image_url', 'imagen', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
+        foreach (['name', 'sku', 'description', 'category', 'brand', 'image_url', 'imagen', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];
