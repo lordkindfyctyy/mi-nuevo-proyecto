@@ -39,6 +39,7 @@ $productsData = array_map(fn($p) => [
     'stock' => (int) $p['stock_quantity'],
     'category' => $p['category'] ?? '',
     'image' => Product::imageUrl($p) ?? '',
+    'description' => $p['description'] ?? '',
 ], $products);
 
 if (($_GET['format'] ?? '') === 'json') {
@@ -67,7 +68,8 @@ $whatsappGeneralUrl = $whatsappDigits
         .catalog-body { max-width: 1100px; margin: 0 auto; padding: 1rem; }
         .catalog-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0 1rem; }
         .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
-        .catalog-card { background: #fff; border: 1px solid #e5e7eb; border-radius: .75rem; overflow: hidden; display: flex; flex-direction: column; }
+        .catalog-card { background: #fff; border: 1px solid #e5e7eb; border-radius: .75rem; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; transition: box-shadow .15s; }
+        .catalog-card:hover { box-shadow: 0 .4rem .8rem rgba(0,0,0,.08); }
         .catalog-card-image { aspect-ratio: 1 / 1; background: #f3f4f6; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 2rem; overflow: hidden; position: relative; }
         .catalog-card-image img { width: 100%; height: 100%; object-fit: cover; }
         .catalog-stock-badge { position: absolute; top: .4rem; right: .4rem; font-size: .68rem; }
@@ -89,6 +91,8 @@ $whatsappGeneralUrl = $whatsappDigits
         .cart-item-price { font-size: .75rem; color: #6b7280; }
         .cart-qty { display: flex; align-items: center; gap: .35rem; }
         .cart-qty button { width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; }
+        .detail-image { width: 100%; height: 220px; object-fit: contain; border-radius: .5rem; background: #f3f4f6; display: block; }
+        .detail-placeholder { width: 100%; height: 220px; background: #f3f4f6; border-radius: .5rem; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 3rem; }
     </style>
 </head>
 <body>
@@ -181,6 +185,32 @@ $whatsappGeneralUrl = $whatsappDigits
         </div>
     </div>
 
+    <div class="modal fade" id="productDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detail-name">Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detail-image-wrap" class="mb-3"></div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fs-4 fw-bold" style="color:#00b28f;" id="detail-price">$0.00</div>
+                        <span class="badge" id="detail-stock-badge"></span>
+                    </div>
+                    <div class="text-secondary small mb-2" id="detail-meta"></div>
+                    <p id="detail-description" class="mb-0"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary flex-grow-1" id="detail-add-btn">Agregar</button>
+                    <a href="#" id="detail-ask-btn" target="_blank" rel="noopener" class="btn btn-outline-success" hidden>
+                        <i class="bi bi-whatsapp"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -208,12 +238,22 @@ $whatsappGeneralUrl = $whatsappDigits
         const checkoutErrorEl = document.getElementById('checkout-error');
         const confirmCheckoutBtn = document.getElementById('confirm-checkout-btn');
         const backToCartBtn = document.getElementById('back-to-cart-btn');
+        const detailModalEl = document.getElementById('productDetailModal');
+        const detailNameEl = document.getElementById('detail-name');
+        const detailImageWrapEl = document.getElementById('detail-image-wrap');
+        const detailPriceEl = document.getElementById('detail-price');
+        const detailStockBadgeEl = document.getElementById('detail-stock-badge');
+        const detailMetaEl = document.getElementById('detail-meta');
+        const detailDescriptionEl = document.getElementById('detail-description');
+        const detailAddBtn = document.getElementById('detail-add-btn');
+        const detailAskBtn = document.getElementById('detail-ask-btn');
 
         if (!gridEl) return;
 
         const cart = new Map();
         const customerStorageKey = 'catalog_customer_' + <?= json_encode($token) ?>;
         let canOrder = false;
+        let currentDetailProductId = null;
 
         function loadCart() {
             try {
@@ -368,8 +408,54 @@ $whatsappGeneralUrl = $whatsappDigits
                     </div>
                 `;
                 card.querySelector('.add-to-cart-btn').addEventListener('click', () => addToCart(product.id));
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.catalog-card-actions')) return;
+                    openProductDetail(product.id);
+                });
                 gridEl.appendChild(card);
             });
+        }
+
+        function renderProductDetail(id) {
+            const product = findProduct(id);
+            if (!product) return;
+
+            const inStock = product.stock > 0;
+            const inCartQty = cartQuantity(id);
+            const maxedOut = inCartQty >= product.stock;
+
+            detailNameEl.textContent = product.name;
+            detailImageWrapEl.innerHTML = product.image
+                ? `<img src="${escapeHtml(product.image)}" alt="" class="detail-image" onerror="this.outerHTML='<div class=&quot;detail-placeholder&quot;><i class=&quot;bi bi-box-seam&quot;></i></div>'">`
+                : '<div class="detail-placeholder"><i class="bi bi-box-seam"></i></div>';
+            detailPriceEl.textContent = formatMoney(product.price);
+            detailStockBadgeEl.className = 'badge ' + (inStock ? 'bg-success' : 'bg-danger');
+            detailStockBadgeEl.textContent = inStock ? product.stock + ' disponibles' : 'Sin stock';
+
+            const metaParts = [];
+            if (product.sku) metaParts.push('SKU: ' + product.sku);
+            if (product.category) metaParts.push(product.category);
+            detailMetaEl.textContent = metaParts.join(' · ');
+            detailMetaEl.hidden = metaParts.length === 0;
+
+            detailDescriptionEl.textContent = product.description || '';
+            detailDescriptionEl.hidden = !product.description;
+
+            detailAddBtn.disabled = !inStock || maxedOut;
+            detailAddBtn.textContent = inCartQty > 0 ? `Agregar (${inCartQty} en tu pedido)` : 'Agregar';
+
+            if (whatsappDigits) {
+                detailAskBtn.hidden = false;
+                detailAskBtn.href = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Hola, quiero consultar sobre: ' + product.name)}`;
+            } else {
+                detailAskBtn.hidden = true;
+            }
+        }
+
+        function openProductDetail(id) {
+            currentDetailProductId = id;
+            renderProductDetail(id);
+            bootstrap.Modal.getOrCreateInstance(detailModalEl).show();
         }
 
         function renderCart() {
@@ -443,6 +529,9 @@ $whatsappGeneralUrl = $whatsappDigits
                     renderFilters();
                     renderGrid();
                     renderCart();
+                    if (currentDetailProductId !== null && detailModalEl.classList.contains('show')) {
+                        renderProductDetail(currentDetailProductId);
+                    }
                     lastUpdatedEl.textContent = 'actualizado ' + new Date().toLocaleTimeString('es-CO');
                 })
                 .catch(() => {
@@ -451,6 +540,16 @@ $whatsappGeneralUrl = $whatsappDigits
         }
 
         searchInput.addEventListener('input', renderGrid);
+
+        detailAddBtn.addEventListener('click', () => {
+            if (currentDetailProductId === null) return;
+            addToCart(currentDetailProductId);
+            renderProductDetail(currentDetailProductId);
+        });
+
+        detailModalEl.addEventListener('hidden.bs.modal', () => {
+            currentDetailProductId = null;
+        });
 
         proceedCheckoutBtn.addEventListener('click', () => {
             if (!canOrder) return;
