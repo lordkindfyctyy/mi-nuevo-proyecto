@@ -143,10 +143,39 @@ $whatsappGeneralUrl = $whatsappDigits
                     </div>
                 </div>
                 <div class="modal-footer flex-column align-items-stretch">
-                    <a href="#" id="whatsapp-order-btn" target="_blank" rel="noopener" class="btn btn-success w-100 disabled" tabindex="-1" aria-disabled="true">
+                    <button type="button" id="proceed-checkout-btn" class="btn btn-success w-100" disabled>
                         <i class="bi bi-whatsapp"></i> Enviar pedido por WhatsApp
-                    </a>
+                    </button>
                     <p id="whatsapp-order-hint" class="text-secondary small text-center mb-0 mt-2" hidden>Este negocio todavía no tiene WhatsApp configurado. Contáctalo directamente.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar pedido</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">Antes de enviarlo por WhatsApp, contanos a quién y dónde entregarlo.</p>
+                    <div id="checkout-error" class="alert alert-danger py-2 small" hidden>Completa tu nombre y dirección para continuar.</div>
+                    <div class="mb-3">
+                        <label for="checkout-name" class="form-label">Nombre completo</label>
+                        <input type="text" id="checkout-name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="checkout-address" class="form-label">Dirección de entrega</label>
+                        <input type="text" id="checkout-address" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer flex-column align-items-stretch">
+                    <button type="button" id="confirm-checkout-btn" class="btn btn-success w-100">
+                        <i class="bi bi-whatsapp"></i> Confirmar y enviar por WhatsApp
+                    </button>
+                    <button type="button" id="back-to-cart-btn" class="btn btn-link btn-sm text-decoration-none">&laquo; Volver al carrito</button>
                 </div>
             </div>
         </div>
@@ -170,12 +199,21 @@ $whatsappGeneralUrl = $whatsappDigits
         const cartItemsListEl = document.getElementById('cart-items-list');
         const cartTotalRowEl = document.getElementById('cart-total-row');
         const cartTotalAmountEl = document.getElementById('cart-total-amount');
-        const whatsappOrderBtn = document.getElementById('whatsapp-order-btn');
+        const proceedCheckoutBtn = document.getElementById('proceed-checkout-btn');
         const whatsappOrderHint = document.getElementById('whatsapp-order-hint');
+        const cartModalEl = document.getElementById('cartModal');
+        const checkoutModalEl = document.getElementById('checkoutModal');
+        const checkoutNameInput = document.getElementById('checkout-name');
+        const checkoutAddressInput = document.getElementById('checkout-address');
+        const checkoutErrorEl = document.getElementById('checkout-error');
+        const confirmCheckoutBtn = document.getElementById('confirm-checkout-btn');
+        const backToCartBtn = document.getElementById('back-to-cart-btn');
 
         if (!gridEl) return;
 
         const cart = new Map();
+        const customerStorageKey = 'catalog_customer_' + <?= json_encode($token) ?>;
+        let canOrder = false;
 
         function loadCart() {
             try {
@@ -195,6 +233,23 @@ $whatsappGeneralUrl = $whatsappDigits
                 const plain = {};
                 cart.forEach((entry, id) => { plain[id] = entry.quantity; });
                 localStorage.setItem(cartStorageKey, JSON.stringify(plain));
+            } catch (e) {
+                // Ignorar si no se puede persistir.
+            }
+        }
+
+        function loadCustomer() {
+            try {
+                const raw = localStorage.getItem(customerStorageKey);
+                return raw ? JSON.parse(raw) : { name: '', address: '' };
+            } catch (e) {
+                return { name: '', address: '' };
+            }
+        }
+
+        function saveCustomer(name, address) {
+            try {
+                localStorage.setItem(customerStorageKey, JSON.stringify({ name, address }));
             } catch (e) {
                 // Ignorar si no se puede persistir.
             }
@@ -358,24 +413,23 @@ $whatsappGeneralUrl = $whatsappDigits
                 cartBadgeEl.textContent = totalItems;
             }
 
-            const canOrder = hasItems && whatsappDigits;
-            whatsappOrderBtn.classList.toggle('disabled', !canOrder);
-            whatsappOrderBtn.setAttribute('aria-disabled', canOrder ? 'false' : 'true');
-            whatsappOrderBtn.tabIndex = canOrder ? 0 : -1;
+            canOrder = hasItems && !!whatsappDigits;
+            proceedCheckoutBtn.disabled = !canOrder;
             whatsappOrderHint.hidden = !hasItems || !!whatsappDigits;
+        }
 
-            if (canOrder) {
-                const lines = ['Hola, quiero hacer un pedido:'];
-                cart.forEach((entry, id) => {
-                    const product = findProduct(id);
-                    if (!product) return;
-                    lines.push(`- ${product.name} x${entry.quantity} = ${formatMoney(product.price * entry.quantity)}`);
-                });
-                lines.push(`Total: ${formatMoney(total)}`);
-                whatsappOrderBtn.href = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(lines.join('\n'))}`;
-            } else {
-                whatsappOrderBtn.href = '#';
-            }
+        function buildOrderMessage(name, address) {
+            const lines = ['Hola, quiero hacer un pedido:', `Nombre: ${name}`, `Dirección de entrega: ${address}`, ''];
+            let total = 0;
+            cart.forEach((entry, id) => {
+                const product = findProduct(id);
+                if (!product) return;
+                const subtotal = product.price * entry.quantity;
+                total += subtotal;
+                lines.push(`- ${product.name} x${entry.quantity} = ${formatMoney(subtotal)}`);
+            });
+            lines.push('', `Total: ${formatMoney(total)}`);
+            return lines.join('\n');
         }
 
         function refreshFromServer() {
@@ -397,6 +451,41 @@ $whatsappGeneralUrl = $whatsappDigits
         }
 
         searchInput.addEventListener('input', renderGrid);
+
+        proceedCheckoutBtn.addEventListener('click', () => {
+            if (!canOrder) return;
+            const saved = loadCustomer();
+            checkoutNameInput.value = saved.name || '';
+            checkoutAddressInput.value = saved.address || '';
+            checkoutErrorEl.hidden = true;
+            bootstrap.Modal.getOrCreateInstance(cartModalEl).hide();
+            bootstrap.Modal.getOrCreateInstance(checkoutModalEl).show();
+        });
+
+        backToCartBtn.addEventListener('click', () => {
+            bootstrap.Modal.getOrCreateInstance(checkoutModalEl).hide();
+            bootstrap.Modal.getOrCreateInstance(cartModalEl).show();
+        });
+
+        confirmCheckoutBtn.addEventListener('click', () => {
+            const name = checkoutNameInput.value.trim();
+            const address = checkoutAddressInput.value.trim();
+
+            if (!name || !address) {
+                checkoutErrorEl.hidden = false;
+                return;
+            }
+
+            saveCustomer(name, address);
+            const message = buildOrderMessage(name, address);
+            window.open(`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+
+            bootstrap.Modal.getOrCreateInstance(checkoutModalEl).hide();
+            cart.clear();
+            saveCart();
+            renderGrid();
+            renderCart();
+        });
 
         loadCart();
         reconcileCartWithStock();
