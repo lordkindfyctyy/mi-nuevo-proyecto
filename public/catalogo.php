@@ -90,11 +90,33 @@ $whatsappGeneralUrl = $whatsappDigits
             box-shadow: 0 .5rem 1rem rgba(0,0,0,.2); text-decoration: none;
         }
         .catalog-whatsapp-fab:hover { background: #1ebe5a; color: #fff; }
-        .cart-item-row { display: flex; align-items: center; gap: .6rem; padding: .6rem 0; border-bottom: 1px solid #f1f2f4; }
-        .cart-item-name { font-weight: 600; font-size: .85rem; }
-        .cart-item-price { font-size: .75rem; color: #6b7280; }
-        .cart-qty { display: flex; align-items: center; gap: .35rem; }
-        .cart-qty button { width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; }
+        .cart-item-row { padding: .75rem 0; border-bottom: 1px solid #f1f2f4; }
+        .cart-item-top { display: flex; align-items: center; gap: .6rem; }
+        .cart-item-thumb {
+            width: 36px; height: 36px; border-radius: .5rem; border: 1px solid #e5e7eb;
+            background: #f3f4f6; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0; color: #9ca3af; font-size: 1rem;
+        }
+        .cart-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .cart-item-name { font-weight: 600; font-size: .85rem; flex: 1; min-width: 0; }
+        .cart-item-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: .5rem; margin-top: .5rem; }
+        .cart-item-qty-block { display: flex; flex-direction: column; gap: .35rem; }
+        .cart-item-unit-price { font-size: .72rem; color: #6b7280; }
+        .cart-item-subtotal { min-width: 4.5rem; text-align: right; }
+        .cart-qty { display: flex; align-items: center; gap: .5rem; }
+        .qty-btn {
+            width: 1.85rem; height: 1.85rem; border-radius: 50%; border: 1px solid #e5e7eb;
+            background: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; line-height: 1; padding: 0; color: #1f2937; flex-shrink: 0;
+        }
+        .qty-btn:hover:not(:disabled) { background: #f3f4f6; }
+        .qty-btn:disabled { opacity: .4; }
+        .qty-input {
+            width: 3rem; text-align: center; border: 1px solid #e5e7eb; border-radius: .5rem;
+            padding: .2rem 0; font-weight: 600; font-size: .85rem;
+        }
+        .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .qty-input { -moz-appearance: textfield; }
         .detail-image { width: 100%; height: 220px; object-fit: contain; border-radius: .5rem; background: #f3f4f6; display: block; }
         .detail-placeholder { width: 100%; height: 220px; background: #f3f4f6; border-radius: .5rem; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 3rem; }
     </style>
@@ -155,7 +177,7 @@ $whatsappGeneralUrl = $whatsappDigits
                 </div>
                 <div class="modal-footer flex-column align-items-stretch">
                     <button type="button" id="proceed-checkout-btn" class="btn btn-success w-100" disabled>
-                        <i class="bi bi-whatsapp"></i> Enviar pedido por WhatsApp
+                        <i class="bi bi-whatsapp"></i> Enviar pedido por WhatsApp &middot; <span id="proceed-checkout-total">$0.00</span>
                     </button>
                     <p id="whatsapp-order-hint" class="text-secondary small text-center mb-0 mt-2" hidden>Este negocio todavía no tiene WhatsApp configurado. Contáctalo directamente.</p>
                 </div>
@@ -239,6 +261,7 @@ $whatsappGeneralUrl = $whatsappDigits
         const cartTotalRowEl = document.getElementById('cart-total-row');
         const cartTotalAmountEl = document.getElementById('cart-total-amount');
         const proceedCheckoutBtn = document.getElementById('proceed-checkout-btn');
+        const proceedCheckoutTotalEl = document.getElementById('proceed-checkout-total');
         const whatsappOrderHint = document.getElementById('whatsapp-order-hint');
         const cartModalEl = document.getElementById('cartModal');
         const checkoutModalEl = document.getElementById('checkoutModal');
@@ -354,12 +377,18 @@ $whatsappGeneralUrl = $whatsappDigits
         function updateQuantity(id, quantity) {
             const product = findProduct(id);
             if (!product) return;
-            quantity = Math.max(0, Math.min(quantity, product.stock));
-            if (quantity === 0) {
-                cart.delete(id);
-            } else {
-                cart.set(id, { quantity });
-            }
+            if (isNaN(quantity)) quantity = 0;
+            quantity = Math.max(0, Math.min(Math.round(quantity), product.stock));
+            // Llegar a 0 no saca la fila del carrito: el producto sigue ahí,
+            // en $0, hasta que se aumente de nuevo o se borre con el tacho.
+            cart.set(id, { quantity });
+            saveCart();
+            renderGrid();
+            renderCart();
+        }
+
+        function removeFromCart(id) {
+            cart.delete(id);
             saveCart();
             renderGrid();
             renderCart();
@@ -497,10 +526,38 @@ $whatsappGeneralUrl = $whatsappDigits
             bootstrap.Modal.getOrCreateInstance(detailModalEl).show();
         }
 
+        // Recalcula el subtotal de una fila y el total general leyendo el
+        // valor que el usuario está tipeando en vivo, sin reconstruir el
+        // DOM (así no se pierde el foco/cursor mientras escribe). El valor
+        // definitivo (redondeo, límite de stock) se aplica en "change" vía
+        // updateQuantity().
+        function recalcRowLive(row, product) {
+            const qty = parseFloat(row.querySelector('.qty-input').value);
+            const subtotal = (isNaN(qty) ? 0 : qty) * product.price;
+            row.querySelector('.cart-item-subtotal').textContent = formatMoney(subtotal);
+            recalcGrandTotalLive();
+        }
+
+        function recalcGrandTotalLive() {
+            let total = 0;
+            cartItemsListEl.querySelectorAll('.cart-item-row').forEach((row) => {
+                const product = findProduct(Number(row.dataset.productId));
+                if (!product) return;
+                const qty = parseFloat(row.querySelector('.qty-input').value);
+                total += (isNaN(qty) ? 0 : qty) * product.price;
+            });
+            cartTotalAmountEl.textContent = formatMoney(total);
+            proceedCheckoutTotalEl.textContent = formatMoney(total);
+        }
+
         function renderCart() {
+            cartItemsListEl.innerHTML = '';
+            const hasItems = cart.size > 0;
+            const hasSellableItems = Array.from(cart.values()).some((entry) => entry.quantity > 0);
+            cartEmptyMsgEl.hidden = hasItems;
+
             let totalItems = 0;
             let total = 0;
-            cartItemsListEl.innerHTML = '';
 
             cart.forEach((entry, id) => {
                 const product = findProduct(id);
@@ -511,36 +568,48 @@ $whatsappGeneralUrl = $whatsappDigits
 
                 const row = document.createElement('div');
                 row.className = 'cart-item-row';
+                row.dataset.productId = product.id;
                 row.innerHTML = `
-                    <div class="flex-grow-1" style="min-width:0;">
+                    <div class="cart-item-top">
+                        <div class="cart-item-thumb">
+                            ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                        </div>
                         <div class="cart-item-name text-truncate">${escapeHtml(product.name)}</div>
-                        <div class="cart-item-price">${formatMoney(product.price)} c/u</div>
+                        <button type="button" class="btn btn-sm btn-link text-danger remove-btn p-0" aria-label="Quitar"><i class="bi bi-trash"></i></button>
                     </div>
-                    <div class="cart-qty">
-                        <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
-                        <span class="fw-semibold" style="min-width:1.4rem;text-align:center;">${entry.quantity}</span>
-                        <button type="button" class="btn btn-outline-secondary btn-sm inc-btn" ${entry.quantity >= product.stock ? 'disabled' : ''}>+</button>
+                    <div class="cart-item-bottom">
+                        <div class="cart-item-qty-block">
+                            <div class="cart-qty">
+                                <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${entry.quantity <= 0 ? 'disabled' : ''}>&minus;</button>
+                                <input type="number" step="1" min="0" max="${product.stock}" class="qty-input" value="${entry.quantity}">
+                                <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${entry.quantity >= product.stock ? 'disabled' : ''}>+</button>
+                            </div>
+                            <div class="cart-item-unit-price">Precio por 1 unidad: ${formatMoney(product.price)}</div>
+                        </div>
+                        <div class="cart-item-subtotal fw-semibold">${formatMoney(subtotal)}</div>
                     </div>
-                    <div class="text-end fw-semibold" style="min-width:4.5rem;">${formatMoney(subtotal)}</div>
                 `;
+                const qtyInput = row.querySelector('.qty-input');
                 row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(id, entry.quantity - 1));
                 row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(id, entry.quantity + 1));
+                row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(id));
+                qtyInput.addEventListener('input', () => recalcRowLive(row, product));
+                qtyInput.addEventListener('change', (e) => updateQuantity(id, parseFloat(e.target.value)));
                 cartItemsListEl.appendChild(row);
             });
 
-            const hasItems = totalItems > 0;
-            cartEmptyMsgEl.hidden = hasItems;
             cartTotalRowEl.hidden = !hasItems;
             cartTotalAmountEl.textContent = formatMoney(total);
+            proceedCheckoutTotalEl.textContent = formatMoney(total);
 
             if (cartBadgeEl) {
                 cartBadgeEl.hidden = totalItems === 0;
                 cartBadgeEl.textContent = totalItems;
             }
 
-            canOrder = hasItems && !!whatsappDigits;
+            canOrder = hasSellableItems && !!whatsappDigits;
             proceedCheckoutBtn.disabled = !canOrder;
-            whatsappOrderHint.hidden = !hasItems || !!whatsappDigits;
+            whatsappOrderHint.hidden = !hasSellableItems || !!whatsappDigits;
         }
 
         function buildOrderMessage(name, address) {
@@ -548,7 +617,7 @@ $whatsappGeneralUrl = $whatsappDigits
             let total = 0;
             cart.forEach((entry, id) => {
                 const product = findProduct(id);
-                if (!product) return;
+                if (!product || entry.quantity <= 0) return;
                 const subtotal = product.price * entry.quantity;
                 total += subtotal;
                 lines.push(`- ${product.name} x${entry.quantity} = ${formatMoney(subtotal)}`);
