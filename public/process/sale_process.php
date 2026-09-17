@@ -22,17 +22,23 @@ $customPrices = $_POST['price'] ?? [];
 $items = [];
 
 foreach ($quantities as $productId => $qty) {
-    $qty = (int) $qty;
-    if ($qty <= 0) {
-        continue;
-    }
-
     $product = Product::findForTenant((int) $productId, $tenantId);
     if (!$product || $product['status'] !== 'active') {
         continue;
     }
 
-    if ($qty > (int) $product['stock_quantity']) {
+    // Los productos "por unidad" solo aceptan enteros; los "por peso"
+    // (ej. fracciones de kilo) aceptan hasta 3 decimales.
+    $qty = is_numeric($qty) ? round((float) $qty, 3) : 0.0;
+    if (($product['sale_unit'] ?? 'unit') !== 'weight') {
+        $qty = (float) (int) $qty;
+    }
+
+    if ($qty <= 0) {
+        continue;
+    }
+
+    if ($qty > (float) $product['stock_quantity']) {
         header('Location: ' . BASE_URL . '/vender.php?error=stock');
         exit;
     }

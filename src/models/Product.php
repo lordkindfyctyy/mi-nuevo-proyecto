@@ -12,8 +12,8 @@ class Product
     public static function create(int $tenantId, string $name, float $price, array $data = []): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO products (tenant_id, name, sku, description, category, brand, image_url, imagen, price, cost, stock_quantity)
-             VALUES (:tenant_id, :name, :sku, :description, :category, :brand, :image_url, :imagen, :price, :cost, :stock_quantity)'
+            'INSERT INTO products (tenant_id, name, sku, description, category, brand, image_url, imagen, price, cost, sale_unit, stock_quantity)
+             VALUES (:tenant_id, :name, :sku, :description, :category, :brand, :image_url, :imagen, :price, :cost, :sale_unit, :stock_quantity)'
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
@@ -26,6 +26,7 @@ class Product
             'imagen' => $data['imagen'] ?? null,
             'price' => $price,
             'cost' => $data['cost'] ?? 0,
+            'sale_unit' => ($data['sale_unit'] ?? 'unit') === 'weight' ? 'weight' : 'unit',
             'stock_quantity' => $data['stock_quantity'] ?? 0,
         ]);
 
@@ -67,10 +68,11 @@ class Product
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'sku', 'description', 'category', 'brand', 'image_url', 'imagen', 'price', 'cost', 'stock_quantity', 'status'] as $field) {
+        foreach (['name', 'sku', 'description', 'category', 'brand', 'image_url', 'imagen', 'price', 'cost', 'sale_unit', 'stock_quantity', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
+                $value = $field === 'sale_unit' ? (($data[$field] ?? 'unit') === 'weight' ? 'weight' : 'unit') : $data[$field];
                 $fields[] = "$field = :$field";
-                $params[$field] = $data[$field];
+                $params[$field] = $value;
             }
         }
 
@@ -83,7 +85,7 @@ class Product
         return self::db()->prepare($sql)->execute($params);
     }
 
-    public static function adjustStock(int $id, int $delta): bool
+    public static function adjustStock(int $id, int|float $delta): bool
     {
         $stmt = self::db()->prepare(
             'UPDATE products SET stock_quantity = stock_quantity + :delta WHERE id = :id'
@@ -115,5 +117,20 @@ class Product
         }
 
         return null;
+    }
+
+    /**
+     * Formats a quantity (stock, sale quantity, etc.) for display, using a
+     * comma as decimal separator and trimming trailing zeros so a
+     * unit-based "50.000" shows as "50" while a weight-based "0.250"
+     * shows as "0,25".
+     */
+    public static function formatQuantity(int|float|string $qty): string
+    {
+        $formatted = number_format((float) $qty, 3, ',', '.');
+        $formatted = rtrim($formatted, '0');
+        $formatted = rtrim($formatted, ',');
+
+        return $formatted === '' ? '0' : $formatted;
     }
 }

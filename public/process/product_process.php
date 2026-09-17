@@ -93,7 +93,8 @@ try {
             'brand' => trim($_POST['brand'] ?? '') ?: null,
             'imagen' => $upload['path'],
             'cost' => (float) ($_POST['cost'] ?? 0),
-            'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),
+            'sale_unit' => $_POST['sale_unit'] ?? 'unit',
+            'stock_quantity' => (float) ($_POST['stock_quantity'] ?? 0),
         ]);
 
         header('Location: ' . BASE_URL . '/productos.php?success=created');
@@ -141,7 +142,8 @@ try {
             'imagen' => $imagen,
             'price' => $price,
             'cost' => (float) ($_POST['cost'] ?? 0),
-            'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),
+            'sale_unit' => $_POST['sale_unit'] ?? 'unit',
+            'stock_quantity' => (float) ($_POST['stock_quantity'] ?? 0),
         ]);
 
         header('Location: ' . BASE_URL . '/productos.php?success=updated');

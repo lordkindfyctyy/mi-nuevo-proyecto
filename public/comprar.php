@@ -85,7 +85,7 @@ if (isset($_GET['success'], $_GET['purchase']) && $tenantId) {
                         <?php foreach ($products as $product): ?>
                             <tr>
                                 <td><?= htmlspecialchars($product['name']) ?></td>
-                                <td class="text-end"><?= (int) $product['stock_quantity'] ?></td>
+                                <td class="text-end"><?= Product::formatQuantity($product['stock_quantity']) ?></td>
                                 <td>
                                     <input type="number" step="0.01" min="0" class="form-control form-control-sm cost-input"
                                            data-cost="<?= (float) $product['cost'] ?>"

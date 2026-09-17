@@ -98,7 +98,7 @@ $totalVendido = array_sum(array_map(
                                 <?php foreach (Sale::itemsFor((int) $sale['id']) as $item): ?>
                                     <tr>
                                         <td><?= htmlspecialchars($item['product_name']) ?></td>
-                                        <td class="text-end"><?= (int) $item['quantity'] ?></td>
+                                        <td class="text-end"><?= Product::formatQuantity($item['quantity']) ?></td>
                                         <td class="text-end">$<?= number_format((float) $item['unit_price'], 2) ?></td>
                                         <td class="text-end">$<?= number_format((float) $item['subtotal'], 2) ?></td>
                                     </tr>

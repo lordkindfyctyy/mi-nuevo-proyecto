@@ -70,7 +70,14 @@ sort($brands);
             </div>
             <div class="col-md-2">
                 <label for="stock_quantity" class="form-label">Stock</label>
-                <input type="number" min="0" id="stock_quantity" name="stock_quantity" class="form-control" value="<?= htmlspecialchars((string) ($editing['stock_quantity'] ?? '0')) ?>">
+                <input type="number" step="0.001" min="0" id="stock_quantity" name="stock_quantity" class="form-control" value="<?= htmlspecialchars((string) ($editing['stock_quantity'] ?? '0')) ?>">
+            </div>
+            <div class="col-md-2">
+                <label for="sale_unit" class="form-label">Se vende por</label>
+                <select id="sale_unit" name="sale_unit" class="form-select">
+                    <option value="unit" <?= ($editing['sale_unit'] ?? 'unit') === 'unit' ? 'selected' : '' ?>>Unidad</option>
+                    <option value="weight" <?= ($editing['sale_unit'] ?? 'unit') === 'weight' ? 'selected' : '' ?>>Peso / fracción (ej. kg)</option>
+                </select>
             </div>
             <div class="col-md-4">
                 <label for="category" class="form-label">Categoría</label>
@@ -145,6 +152,7 @@ sort($brands);
                 <th class="text-end">Precio</th>
                 <th class="text-end">Costo</th>
                 <th class="text-end">Stock</th>
+                <th>Tipo</th>
                 <th>Estado</th>
                 <th class="text-end">Acciones</th>
             </tr>
@@ -169,10 +177,11 @@ sort($brands);
                     <td class="text-end">$<?= number_format((float) $product['price'], 2) ?></td>
                     <td class="text-end">$<?= number_format((float) $product['cost'], 2) ?></td>
                     <td class="text-end">
-                        <span class="badge <?= (int) $product['stock_quantity'] <= 5 ? 'bg-danger' : 'bg-success-subtle text-success-emphasis' ?>">
-                            <?= (int) $product['stock_quantity'] ?>
+                        <span class="badge <?= (float) $product['stock_quantity'] <= 5 ? 'bg-danger' : 'bg-success-subtle text-success-emphasis' ?>">
+                            <?= Product::formatQuantity($product['stock_quantity']) ?>
                         </span>
                     </td>
+                    <td><?= ($product['sale_unit'] ?? 'unit') === 'weight' ? 'Peso' : 'Unidad' ?></td>
                     <td><?= $product['status'] === 'active' ? 'Activo' : 'Inactivo' ?></td>
                     <td class="text-end">
                         <a href="<?= BASE_URL ?>/productos.php?edit=<?= (int) $product['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>
@@ -185,7 +194,7 @@ sort($brands);
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="10" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="11" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

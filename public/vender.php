@@ -14,7 +14,8 @@ $productsJson = json_encode(array_map(fn($p) => [
     'name' => $p['name'],
     'sku' => $p['sku'] ?? '',
     'price' => (float) $p['price'],
-    'stock' => (int) $p['stock_quantity'],
+    'stock' => (float) $p['stock_quantity'],
+    'saleUnit' => $p['sale_unit'] ?? 'unit',
     'category' => $p['category'] ?? '',
     'image' => Product::imageUrl($p) ?? '',
     'description' => $p['description'] ?? '',
@@ -393,6 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function formatQty(value) {
+        return Number(value).toLocaleString('es-CO', { maximumFractionDigits: 3 });
+    }
+
     function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
@@ -446,12 +451,12 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="product-card-image">
                     ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
-                    <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'} product-stock-badge">${outOfStock ? 'Sin stock' : remaining + ' disp.'}</span>
+                    <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'} product-stock-badge">${outOfStock ? 'Sin stock' : formatQty(remaining) + ' disp.'}</span>
                 </div>
                 <div class="product-card-body">
                     <div class="product-card-price">${formatMoney(product.price)}</div>
                     <div class="product-card-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
-                    <div class="product-card-desc">${escapeHtml(product.sku || product.description || '')}</div>
+                    <div class="product-card-desc">${escapeHtml(product.sku || product.description || '')}${product.saleUnit === 'weight' ? ' · por peso' : ''}</div>
                 </div>
             `;
             if (!outOfStock) {
@@ -480,6 +485,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateQuantity(id, quantity) {
         const entry = cart.get(id);
         if (!entry) return;
+        if (isNaN(quantity)) quantity = 0;
+        quantity = Math.round(quantity * 1000) / 1000;
         quantity = Math.max(0, Math.min(quantity, entry.product.stock));
         if (quantity === 0) {
             cart.delete(id);
@@ -526,15 +533,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="cart-qty">
-                    <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
-                    <span class="fw-semibold" style="min-width:1.5rem;text-align:center;">${quantity}</span>
-                    <button type="button" class="btn btn-outline-secondary btn-sm inc-btn" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
+                    ${product.saleUnit === 'weight' ? `
+                        <input type="number" step="0.001" min="0.001" max="${product.stock}" class="form-control form-control-sm qty-weight-input" value="${quantity}" style="width:4.5rem;padding:.1rem .35rem;">
+                    ` : `
+                        <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
+                        <span class="fw-semibold" style="min-width:1.5rem;text-align:center;">${quantity}</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm inc-btn" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
+                    `}
                 </div>
                 <div class="text-end fw-semibold" style="min-width:5rem;">${formatMoney(subtotal)}</div>
                 <button type="button" class="btn btn-sm btn-link text-danger remove-btn" aria-label="Quitar"><i class="bi bi-trash"></i></button>
             `;
-            row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - 1));
-            row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + 1));
+            if (product.saleUnit === 'weight') {
+                row.querySelector('.qty-weight-input').addEventListener('change', (e) => updateQuantity(product.id, parseFloat(e.target.value)));
+            } else {
+                row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - 1));
+                row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + 1));
+            }
             row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(product.id));
             row.querySelector('.price-input').addEventListener('change', (e) => updateUnitPrice(product.id, parseFloat(e.target.value)));
             cartListEl.appendChild(row);

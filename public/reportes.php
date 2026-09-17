@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Report.php';
+require_once __DIR__ . '/../src/models/Product.php';
 requireLogin();
 require_once __DIR__ . '/../includes/header.php';
 
@@ -17,7 +18,7 @@ $trend = $tenantId ? Report::salesTrend($tenantId, $period) : [];
 $trendLabels = json_encode(array_map(fn($d) => $d['label'], $trend));
 $trendTotals = json_encode(array_map(fn($d) => round($d['total'], 2), $trend));
 $topProductsLabels = json_encode(array_map(fn($p) => $p['name'], $topProducts), JSON_UNESCAPED_UNICODE);
-$topProductsQuantities = json_encode(array_map(fn($p) => (int) $p['quantity_sold'], $topProducts));
+$topProductsQuantities = json_encode(array_map(fn($p) => (float) $p['quantity_sold'], $topProducts));
 
 $periodOptions = [
     'day' => 'Día',
@@ -57,7 +58,7 @@ $periodOptions = [
                 <div class="text-secondary small">Producto más vendido</div>
                 <?php if ($topProduct): ?>
                     <div class="h3 fw-bold mb-0 text-truncate" title="<?= htmlspecialchars($topProduct['name']) ?>"><?= htmlspecialchars($topProduct['name']) ?></div>
-                    <div class="text-secondary small mt-1"><?= (int) $topProduct['quantity_sold'] ?> unidades · <?= htmlspecialchars($periodLabel) ?></div>
+                    <div class="text-secondary small mt-1"><?= Product::formatQuantity($topProduct['quantity_sold']) ?> unidades · <?= htmlspecialchars($periodLabel) ?></div>
                 <?php else: ?>
                     <div class="h5 fw-semibold mb-0 text-secondary">Sin ventas</div>
                     <div class="text-secondary small mt-1"><?= htmlspecialchars($periodLabel) ?></div>

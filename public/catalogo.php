@@ -36,7 +36,7 @@ $productsData = array_map(fn($p) => [
     'name' => $p['name'],
     'sku' => $p['sku'] ?? '',
     'price' => (float) $p['price'],
-    'stock' => (int) $p['stock_quantity'],
+    'stock' => (float) $p['stock_quantity'],
     'category' => $p['category'] ?? '',
     'brand' => $p['brand'] ?? '',
     'image' => Product::imageUrl($p) ?? '',
@@ -308,6 +308,10 @@ $whatsappGeneralUrl = $whatsappDigits
             return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function formatQty(value) {
+            return Number(value).toLocaleString('es-CO', { maximumFractionDigits: 3 });
+        }
+
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str;
@@ -428,7 +432,7 @@ $whatsappGeneralUrl = $whatsappDigits
                 card.innerHTML = `
                     <div class="catalog-card-image">
                         ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
-                        <span class="badge ${inStock ? 'bg-success' : 'bg-danger'} catalog-stock-badge">${inStock ? product.stock + ' disp.' : 'Sin stock'}</span>
+                        <span class="badge ${inStock ? 'bg-success' : 'bg-danger'} catalog-stock-badge">${inStock ? formatQty(product.stock) + ' disp.' : 'Sin stock'}</span>
                     </div>
                     <div class="catalog-card-body">
                         <div class="catalog-card-price">${formatMoney(product.price)}</div>
@@ -464,7 +468,7 @@ $whatsappGeneralUrl = $whatsappDigits
                 : '<div class="detail-placeholder"><i class="bi bi-box-seam"></i></div>';
             detailPriceEl.textContent = formatMoney(product.price);
             detailStockBadgeEl.className = 'badge ' + (inStock ? 'bg-success' : 'bg-danger');
-            detailStockBadgeEl.textContent = inStock ? product.stock + ' disponibles' : 'Sin stock';
+            detailStockBadgeEl.textContent = inStock ? formatQty(product.stock) + ' disponibles' : 'Sin stock';
 
             const metaParts = [];
             if (product.sku) metaParts.push('SKU: ' + product.sku);
