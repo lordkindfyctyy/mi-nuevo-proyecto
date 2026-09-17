@@ -60,11 +60,27 @@ CREATE TABLE IF NOT EXISTS products (
     CONSTRAINT fk_products_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Clientes
+CREATE TABLE IF NOT EXISTS customers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT UNSIGNED NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    phone VARCHAR(30) NULL,
+    email VARCHAR(150) NULL,
+    address VARCHAR(255) NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_customers_tenant (tenant_id),
+    CONSTRAINT fk_customers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Ventas
 CREATE TABLE IF NOT EXISTS sales (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tenant_id INT UNSIGNED NOT NULL,
     user_id INT UNSIGNED NOT NULL,
+    customer_id INT UNSIGNED NULL,
     customer_name VARCHAR(150) NULL,
     total DECIMAL(10,2) NOT NULL DEFAULT 0,
     payment_method ENUM('cash', 'card', 'transfer', 'other') NOT NULL DEFAULT 'cash',
@@ -72,8 +88,10 @@ CREATE TABLE IF NOT EXISTS sales (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_sales_tenant (tenant_id),
     KEY idx_sales_user (user_id),
+    KEY idx_sales_customer (customer_id),
     CONSTRAINT fk_sales_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    CONSTRAINT fk_sales_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+    CONSTRAINT fk_sales_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_sales_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Detalle de venta: productos incluidos en cada venta

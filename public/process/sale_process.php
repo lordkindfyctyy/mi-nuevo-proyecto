@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/tenant_context.php';
 require_once __DIR__ . '/../../src/models/Product.php';
 require_once __DIR__ . '/../../src/models/Sale.php';
+require_once __DIR__ . '/../../src/models/Customer.php';
 requireLogin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -73,10 +74,19 @@ if (!in_array($paymentMethod, $allowedMethods, true)) {
     $paymentMethod = 'cash';
 }
 
-$customerName = trim($_POST['customer_name'] ?? '') ?: null;
+$customerId = null;
+$customerName = null;
+$postedCustomerId = (int) ($_POST['customer_id'] ?? 0);
+if ($postedCustomerId > 0) {
+    $customer = Customer::findForTenant($postedCustomerId, $tenantId);
+    if ($customer) {
+        $customerId = (int) $customer['id'];
+        $customerName = $customer['name'];
+    }
+}
 
 try {
-    $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod);
+    $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod, $customerId);
     header('Location: ' . BASE_URL . '/vender.php?success=1&sale=' . $saleId);
     exit;
 } catch (Throwable $e) {

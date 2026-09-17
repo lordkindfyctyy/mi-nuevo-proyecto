@@ -13,7 +13,7 @@ class Sale
     /**
      * @param array<int, array{product_id:int, quantity:int, unit_price:float}> $items
      */
-    public static function create(int $tenantId, int $userId, array $items, ?string $customerName = null, string $paymentMethod = 'cash'): int
+    public static function create(int $tenantId, int $userId, array $items, ?string $customerName = null, string $paymentMethod = 'cash', ?int $customerId = null): int
     {
         $db = self::db();
         $db->beginTransaction();
@@ -25,12 +25,13 @@ class Sale
             }
 
             $stmt = $db->prepare(
-                'INSERT INTO sales (tenant_id, user_id, customer_name, total, payment_method)
-                 VALUES (:tenant_id, :user_id, :customer_name, :total, :payment_method)'
+                'INSERT INTO sales (tenant_id, user_id, customer_id, customer_name, total, payment_method)
+                 VALUES (:tenant_id, :user_id, :customer_id, :customer_name, :total, :payment_method)'
             );
             $stmt->execute([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
+                'customer_id' => $customerId,
                 'customer_name' => $customerName,
                 'total' => $total,
                 'payment_method' => $paymentMethod,
@@ -117,5 +118,50 @@ class Sale
         $stmt = self::db()->prepare("UPDATE sales SET status = 'cancelled' WHERE id = :id");
 
         return $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Sale count and total spent per customer, for the "resumen de compras"
+     * shown in the customers screen. Keyed by customer_id.
+     *
+     * @return array<int, array{count: int, total: float}>
+     */
+    public static function statsByCustomer(int $tenantId): array
+    {
+        $stmt = self::db()->prepare(
+            "SELECT customer_id, COUNT(*) AS sales_count, COALESCE(SUM(total), 0) AS total_spent
+             FROM sales
+             WHERE tenant_id = :tenant_id AND status = 'completed' AND customer_id IS NOT NULL
+             GROUP BY customer_id"
+        );
+        $stmt->execute(['tenant_id' => $tenantId]);
+
+        $stats = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $stats[(int) $row['customer_id']] = [
+                'count' => (int) $row['sales_count'],
+                'total' => (float) $row['total_spent'],
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Like allByTenant(), but scoped to a single customer for the
+     * per-customer purchase history.
+     */
+    public static function findByCustomerForTenant(int $customerId, int $tenantId): array
+    {
+        $stmt = self::db()->prepare(
+            'SELECT s.*, u.name AS seller_name
+             FROM sales s
+             JOIN users u ON u.id = s.user_id
+             WHERE s.tenant_id = :tenant_id AND s.customer_id = :customer_id
+             ORDER BY s.created_at DESC'
+        );
+        $stmt->execute(['tenant_id' => $tenantId, 'customer_id' => $customerId]);
+
+        return $stmt->fetchAll();
     }
 }

@@ -3,10 +3,12 @@ require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Product.php';
 require_once __DIR__ . '/../src/models/Sale.php';
 require_once __DIR__ . '/../src/models/Tenant.php';
+require_once __DIR__ . '/../src/models/Customer.php';
 requireLogin();
 
 $tenantId = currentTenantId();
 $products = $tenantId ? Product::allByTenant($tenantId) : [];
+$customers = $tenantId ? Customer::allByTenant($tenantId) : [];
 $products = array_values(array_filter($products, fn($p) => $p['status'] === 'active'));
 
 $productsJson = json_encode(array_map(fn($p) => [
@@ -36,7 +38,7 @@ $navItems = [
     ['label' => 'Vender', 'href' => BASE_URL . '/vender.php', 'icon' => 'bi-cart3', 'match' => 'vender.php'],
     ['label' => 'Balance', 'href' => BASE_URL . '/reportes.php', 'icon' => 'bi-bar-chart-line', 'match' => 'reportes.php'],
     ['label' => 'Inventario', 'href' => BASE_URL . '/productos.php', 'icon' => 'bi-box-seam', 'match' => 'productos.php'],
-    ['label' => 'Clientes', 'href' => null, 'icon' => 'bi-people', 'match' => null],
+    ['label' => 'Clientes', 'href' => BASE_URL . '/clientes.php', 'icon' => 'bi-people', 'match' => 'clientes.php'],
     ['label' => 'Proveedores', 'href' => BASE_URL . '/proveedores.php', 'icon' => 'bi-truck', 'match' => 'proveedores.php'],
 ];
 
@@ -347,7 +349,13 @@ function pos_render_nav(array $items, string $currentPage): void
             </div>
             <div class="pos-cart-footer">
                 <div class="mb-2">
-                    <input type="text" id="customer_name" name="customer_name" class="form-control form-control-sm" placeholder="Cliente (opcional)">
+                    <select id="customer_id" name="customer_id" class="form-select form-select-sm">
+                        <option value="">Cliente ocasional (sin registrar)</option>
+                        <?php foreach ($customers as $customer): ?>
+                            <option value="<?= (int) $customer['id'] ?>"><?= htmlspecialchars($customer['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="<?= BASE_URL ?>/clientes.php" target="_blank" class="form-text text-decoration-none">¿No está en la lista? Agrégalo en Clientes.</a>
                 </div>
                 <div class="mb-3">
                     <select id="payment_method" name="payment_method" class="form-select form-select-sm">
