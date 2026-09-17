@@ -512,11 +512,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ? Math.round(quantity * 1000) / 1000
             : Math.round(quantity);
         quantity = Math.max(0, Math.min(quantity, entry.product.stock));
-        if (quantity === 0) {
-            cart.delete(id);
-        } else {
-            entry.quantity = quantity;
-        }
+        // Llegar a 0 no saca la fila del carrito: el producto sigue ahí,
+        // en $0, hasta que se aumente de nuevo o se borre con el tacho.
+        entry.quantity = quantity;
         renderAll();
     }
 
@@ -562,8 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCart() {
         cartListEl.innerHTML = '';
         const hasItems = cart.size > 0;
+        const hasSellableItems = Array.from(cart.values()).some((entry) => entry.quantity > 0);
         cartEmptyEl.hidden = hasItems;
-        submitBtn.disabled = !hasItems;
+        submitBtn.disabled = !hasSellableItems;
 
         let total = 0;
         cart.forEach(({ product, quantity, unitPrice }) => {
@@ -581,7 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="cart-item-bottom">
                     <div class="cart-item-qty-block">
                         <div class="cart-qty">
-                            <button type="button" class="qty-btn dec-btn" aria-label="Disminuir">&minus;</button>
+                            <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${quantity <= 0 ? 'disabled' : ''}>&minus;</button>
                             <input type="number" step="${step}" min="0" max="${product.stock}" class="qty-input" value="${quantity}">
                             <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
                         </div>
