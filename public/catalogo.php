@@ -118,6 +118,13 @@ $whatsappGeneralUrl = $whatsappDigits
         }
         .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .qty-input { -moz-appearance: textfield; }
+        .cart-amount-row { display: flex; align-items: center; gap: .2rem; font-size: .68rem; color: #6b7280; margin-top: .15rem; }
+        .amount-input {
+            width: 4rem; border: none; border-bottom: 1px dashed #9ca3af; background: transparent;
+            padding: 0; font: inherit; color: inherit;
+        }
+        .amount-input:focus { outline: none; border-bottom-color: #00b28f; }
+        .amount-input::-webkit-outer-spin-button, .amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .detail-image { width: 100%; height: 220px; object-fit: contain; border-radius: .5rem; background: #f3f4f6; display: block; }
         .detail-placeholder { width: 100%; height: 220px; background: #f3f4f6; border-radius: .5rem; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 3rem; }
     </style>
@@ -393,7 +400,7 @@ $whatsappGeneralUrl = $whatsappDigits
             if (!product) return;
             if (isNaN(quantity)) quantity = 0;
             quantity = isFractionalProduct(product)
-                ? Math.round(quantity * 100) / 100
+                ? Math.round(quantity * 1000) / 1000
                 : Math.round(quantity);
             quantity = Math.max(0, Math.min(quantity, product.stock));
             // Llegar a 0 no saca la fila del carrito: el producto sigue ahí,
@@ -602,10 +609,16 @@ $whatsappGeneralUrl = $whatsappDigits
                         <div class="cart-item-qty-block">
                             <div class="cart-qty">
                                 <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${entry.quantity <= 0 ? 'disabled' : ''}>&minus;</button>
-                                <input type="number" step="${fractional ? '0.01' : '1'}" min="0" max="${product.stock}" class="qty-input" value="${entry.quantity}">
+                                <input type="number" step="${fractional ? 'any' : '1'}" min="0" max="${product.stock}" class="qty-input" value="${entry.quantity}">
                                 <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${entry.quantity >= product.stock ? 'disabled' : ''}>+</button>
                             </div>
                             <div class="cart-item-unit-price">Precio por 1 ${unitLabel}: ${formatMoney(product.price)}</div>
+                            ${fractional ? `
+                                <div class="cart-amount-row">
+                                    <span>o por monto: $</span>
+                                    <input type="number" step="any" min="0" class="amount-input" placeholder="5000" title="Ingresá el monto y se calculan los kilos">
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="cart-item-subtotal fw-semibold">${formatMoney(subtotal)}</div>
                     </div>
@@ -614,6 +627,24 @@ $whatsappGeneralUrl = $whatsappDigits
                 row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(id, entry.quantity - step));
                 row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(id, entry.quantity + step));
                 row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(id));
+
+                if (fractional) {
+                    const amountInput = row.querySelector('.amount-input');
+                    const applyAmount = () => {
+                        const amount = parseFloat(amountInput.value);
+                        amountInput.value = '';
+                        if (isNaN(amount) || amount < 0 || product.price <= 0) return;
+                        updateQuantity(id, amount / product.price);
+                    };
+                    amountInput.addEventListener('change', applyAmount);
+                    amountInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            amountInput.blur();
+                        }
+                    });
+                }
+
                 qtyInput.addEventListener('input', () => recalcRowLive(row, product));
                 qtyInput.addEventListener('change', (e) => updateQuantity(id, parseFloat(e.target.value)));
                 cartItemsListEl.appendChild(row);

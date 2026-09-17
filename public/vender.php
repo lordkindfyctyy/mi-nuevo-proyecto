@@ -184,6 +184,13 @@ function pos_render_nav(array $items, string $currentPage): void
         .price-input-inline:focus { outline: none; border-bottom: 1px dashed var(--color-primary); }
         .price-input-inline::-webkit-outer-spin-button, .price-input-inline::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .cart-item-unit-price .bi-pencil-fill { font-size: .62rem; opacity: .55; margin-left: .15rem; }
+        .cart-amount-row { display: flex; align-items: center; gap: .2rem; font-size: .68rem; color: #6b7280; margin-top: .15rem; }
+        .amount-input {
+            width: 4rem; border: none; border-bottom: 1px dashed #9ca3af; background: transparent;
+            padding: 0; font: inherit; color: inherit;
+        }
+        .amount-input:focus { outline: none; border-bottom-color: var(--color-primary); }
+        .amount-input::-webkit-outer-spin-button, .amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .pos-cart-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--color-border); }
         .pos-cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.25rem; margin-bottom: .75rem; }
         .pos-continue-btn { width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600; border-radius: .75rem; }
@@ -339,7 +346,7 @@ function pos_render_nav(array $items, string $currentPage): void
             <h2 class="h6 fw-bold mb-0">Productos</h2>
             <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none p-0" id="clear-cart-btn">Vaciar canasta</button>
         </div>
-        <form method="POST" action="<?= BASE_URL ?>/process/sale_process.php" id="sale-form" class="d-flex flex-column flex-grow-1 overflow-hidden">
+        <form method="POST" action="<?= BASE_URL ?>/process/sale_process.php" id="sale-form" novalidate class="d-flex flex-column flex-grow-1 overflow-hidden">
             <div id="cart-inputs"></div>
             <div class="pos-cart-items">
                 <div class="pos-cart-empty" id="cart-empty">
@@ -583,8 +590,10 @@ document.addEventListener('DOMContentLoaded', () => {
         cart.forEach(({ product, quantity, unitPrice }) => {
             const subtotal = unitPrice * quantity;
             total += subtotal;
-            const step = product.saleUnit === 'weight' ? 0.1 : 1;
-            const unitLabel = product.saleUnit === 'weight' ? 'kg' : 'unidad';
+            const isFractional = product.saleUnit === 'weight';
+            const buttonStep = isFractional ? 0.5 : 1;
+            const inputStepAttr = isFractional ? 'any' : '1';
+            const unitLabel = isFractional ? 'kg' : 'unidad';
             const row = document.createElement('div');
             row.className = 'cart-item';
             row.innerHTML = `
@@ -599,12 +608,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="cart-item-qty-block">
                         <div class="cart-qty">
                             <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${quantity <= 0 ? 'disabled' : ''}>&minus;</button>
-                            <input type="number" step="${step}" min="0" max="${product.stock}" class="qty-input" value="${quantity}">
+                            <input type="number" step="${inputStepAttr}" min="0" max="${product.stock}" class="qty-input" value="${quantity}">
                             <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
                         </div>
                         <div class="cart-item-unit-price">
                             Precio por 1 ${unitLabel}: $<input type="number" step="0.01" min="0" class="price-input-inline" value="${unitPrice}" title="Editar precio de esta venta"><i class="bi bi-pencil-fill"></i>
                         </div>
+                        ${isFractional ? `
+                            <div class="cart-amount-row">
+                                <span>o por monto: $</span>
+                                <input type="number" step="any" min="0" class="amount-input" placeholder="5000" title="Ingresá el monto y se calculan los kilos">
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="cart-item-subtotal fw-semibold">${formatMoney(subtotal)}</div>
                 </div>
@@ -612,9 +627,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const qtyInput = row.querySelector('.qty-input');
             const priceInput = row.querySelector('.price-input-inline');
 
-            row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - step));
-            row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + step));
+            row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - buttonStep));
+            row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + buttonStep));
             row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(product.id));
+
+            if (isFractional) {
+                const amountInput = row.querySelector('.amount-input');
+                const applyAmount = () => {
+                    const amount = parseFloat(amountInput.value);
+                    amountInput.value = '';
+                    if (isNaN(amount) || amount < 0 || unitPrice <= 0) return;
+                    updateQuantity(product.id, amount / unitPrice);
+                };
+                amountInput.addEventListener('change', applyAmount);
+                amountInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        amountInput.blur();
+                    }
+                });
+            }
 
             qtyInput.addEventListener('input', () => recalcRowLive(row));
             qtyInput.addEventListener('change', (e) => updateQuantity(product.id, parseFloat(e.target.value)));
