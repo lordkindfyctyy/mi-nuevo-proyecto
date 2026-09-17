@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS sales (
     customer_id INT UNSIGNED NULL,
     customer_name VARCHAR(150) NULL,
     total DECIMAL(10,2) NOT NULL DEFAULT 0,
+    discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     payment_method ENUM('cash', 'card', 'transfer', 'other') NOT NULL DEFAULT 'cash',
     status ENUM('completed', 'cancelled') NOT NULL DEFAULT 'completed',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -68,6 +68,26 @@ if (!$items) {
     exit;
 }
 
+$subtotal = 0.0;
+foreach ($items as $item) {
+    $subtotal += $item['unit_price'] * $item['quantity'];
+}
+
+// El descuento se recalcula siempre en el servidor a partir del subtotal
+// real de los productos validados; nunca se confía en un monto de
+// descuento que venga ya calculado desde el navegador.
+$discountAmount = 0.0;
+if (($_POST['discount_enabled'] ?? '') === '1') {
+    $discountType = ($_POST['discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent';
+    $discountValue = is_numeric($_POST['discount_value'] ?? null) ? (float) $_POST['discount_value'] : 0.0;
+    $discountValue = max(0.0, $discountValue);
+
+    $discountAmount = $discountType === 'percent'
+        ? $subtotal * min($discountValue, 100) / 100
+        : $discountValue;
+    $discountAmount = round(max(0.0, min($discountAmount, $subtotal)), 2);
+}
+
 $allowedMethods = ['cash', 'card', 'transfer', 'other'];
 $paymentMethod = $_POST['payment_method'] ?? 'cash';
 if (!in_array($paymentMethod, $allowedMethods, true)) {
@@ -86,7 +106,7 @@ if ($postedCustomerId > 0) {
 }
 
 try {
-    $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod, $customerId);
+    $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod, $customerId, $discountAmount);
     header('Location: ' . BASE_URL . '/vender.php?success=1&sale=' . $saleId);
     exit;
 } catch (Throwable $e) {

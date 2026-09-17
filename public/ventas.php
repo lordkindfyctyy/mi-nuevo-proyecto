@@ -103,6 +103,16 @@ $totalVendido = array_sum(array_map(
                                         <td class="text-end">$<?= number_format((float) $item['subtotal'], 2) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
+                                <?php if ((float) $sale['discount_amount'] > 0): ?>
+                                    <tr class="text-danger">
+                                        <td colspan="3" class="text-end fw-semibold">Descuento aplicado</td>
+                                        <td class="text-end fw-semibold">- $<?= number_format((float) $sale['discount_amount'], 2) ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-semibold">Total cobrado</td>
+                                        <td class="text-end fw-semibold">$<?= number_format((float) $sale['total'], 2) ?></td>
+                                    </tr>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </td>

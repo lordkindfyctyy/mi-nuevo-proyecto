@@ -194,6 +194,10 @@ function pos_render_nav(array $items, string $currentPage): void
         .pos-cart-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--color-border); }
         .pos-cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.25rem; margin-bottom: .75rem; }
         .pos-continue-btn { width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600; border-radius: .75rem; }
+        .pos-discount-block { padding: .5rem .6rem; background: #f8f9fa; border-radius: .5rem; }
+        .pos-discount-input-group { display: flex; gap: .3rem; width: 8rem; }
+        .pos-discount-input-group .form-select, .pos-discount-input-group .form-control { padding: .2rem .4rem; font-size: .8rem; }
+        .pos-summary-line { display: flex; justify-content: space-between; align-items: center; margin-bottom: .35rem; }
         .pos-cart-empty { text-align: center; color: #9ca3af; padding: 2rem 1rem; }
 
         #voice-btn.listening {
@@ -373,6 +377,29 @@ function pos_render_nav(array $items, string $currentPage): void
                         <option value="other">Otro</option>
                     </select>
                 </div>
+                <div class="pos-discount-block mb-2">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="discount-toggle">
+                            <label class="form-check-label small" for="discount-toggle">Aplicar 10% desc.</label>
+                        </div>
+                        <div class="pos-discount-input-group" id="discount-input-group" hidden>
+                            <select class="form-select form-select-sm" id="discount-type">
+                                <option value="percent">%</option>
+                                <option value="fixed">$</option>
+                            </select>
+                            <input type="number" step="any" min="0" class="form-control form-control-sm" id="discount-value" value="10">
+                        </div>
+                    </div>
+                </div>
+                <div class="pos-summary-line text-secondary small" id="discount-subtotal-line" hidden>
+                    <span>Subtotal</span>
+                    <span id="summary-subtotal">$0.00</span>
+                </div>
+                <div class="pos-summary-line text-danger small" id="discount-line" hidden>
+                    <span>Descuento</span>
+                    <span id="summary-discount">- $0.00</span>
+                </div>
                 <div class="pos-cart-total">
                     <span>Total</span>
                     <span id="grand-total">$0.00</span>
@@ -380,6 +407,9 @@ function pos_render_nav(array $items, string $currentPage): void
                 <button type="submit" class="btn btn-primary pos-continue-btn" id="submit-btn" disabled>
                     Continuar · <span id="submit-total">$0.00</span>
                 </button>
+                <input type="hidden" name="discount_enabled" id="discount-enabled-input" value="0">
+                <input type="hidden" name="discount_type" id="discount-type-input" value="percent">
+                <input type="hidden" name="discount_value" id="discount-value-input" value="0">
             </div>
         </form>
     </aside>
@@ -419,6 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const products = <?= $productsJson ?: '[]' ?>;
     const cart = new Map();
     let activeCategory = 'all';
+    const discount = { enabled: false, type: 'percent', value: 10 };
 
     const searchInput = document.getElementById('product-search');
     if (!searchInput) return;
@@ -433,6 +464,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitTotalEl = document.getElementById('submit-total');
     const submitBtn = document.getElementById('submit-btn');
     const clearCartBtn = document.getElementById('clear-cart-btn');
+    const discountToggle = document.getElementById('discount-toggle');
+    const discountInputGroup = document.getElementById('discount-input-group');
+    const discountTypeSelect = document.getElementById('discount-type');
+    const discountValueInput = document.getElementById('discount-value');
+    const discountSubtotalLine = document.getElementById('discount-subtotal-line');
+    const discountLine = document.getElementById('discount-line');
+    const summarySubtotalEl = document.getElementById('summary-subtotal');
+    const summaryDiscountEl = document.getElementById('summary-discount');
+    const discountEnabledInput = document.getElementById('discount-enabled-input');
+    const discountTypeInput = document.getElementById('discount-type-input');
+    const discountValueInputHidden = document.getElementById('discount-value-input');
 
     function formatMoney(value) {
         return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -440,6 +482,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatQty(value) {
         return Number(value).toLocaleString('es-CO', { maximumFractionDigits: 3 });
+    }
+
+    // Calcula el descuento (nunca negativo ni mayor al subtotal) y actualiza
+    // la línea de resumen + los inputs ocultos que se envían al backend, que
+    // siempre revalida este monto contra el subtotal real de los productos.
+    function applyDiscountSummary(subtotal) {
+        let discountAmount = 0;
+        if (discount.enabled && subtotal > 0) {
+            discountAmount = discount.type === 'percent'
+                ? subtotal * Math.min(Math.max(discount.value, 0), 100) / 100
+                : Math.max(discount.value, 0);
+            discountAmount = Math.max(0, Math.min(discountAmount, subtotal));
+        }
+        const total = subtotal - discountAmount;
+
+        discountSubtotalLine.hidden = !discount.enabled;
+        discountLine.hidden = !discount.enabled;
+        if (discount.enabled) {
+            summarySubtotalEl.textContent = formatMoney(subtotal);
+            summaryDiscountEl.textContent = '- ' + formatMoney(discountAmount);
+        }
+
+        discountEnabledInput.value = discount.enabled ? '1' : '0';
+        discountTypeInput.value = discount.type;
+        discountValueInputHidden.value = discount.value;
+
+        grandTotalEl.textContent = formatMoney(total);
+        submitTotalEl.textContent = formatMoney(total);
+
+        return total;
     }
 
     function escapeHtml(str) {
@@ -569,14 +641,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function recalcGrandTotalLive() {
-        let total = 0;
+        let subtotal = 0;
         cartListEl.querySelectorAll('.cart-item').forEach((row) => {
             const qty = parseFloat(row.querySelector('.qty-input').value);
             const price = parseFloat(row.querySelector('.price-input-inline').value);
-            total += (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
+            subtotal += (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
         });
-        grandTotalEl.textContent = formatMoney(total);
-        submitTotalEl.textContent = formatMoney(total);
+        applyDiscountSummary(subtotal);
     }
 
     function renderCart() {
@@ -656,8 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cartListEl.appendChild(row);
         });
 
-        grandTotalEl.textContent = formatMoney(total);
-        submitTotalEl.textContent = formatMoney(total);
+        applyDiscountSummary(total);
 
         cartInputsEl.innerHTML = '';
         cart.forEach(({ product, quantity, unitPrice }) => {
@@ -719,6 +789,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('¿Vaciar la canasta actual?')) return;
         cart.clear();
         renderAll();
+    });
+
+    discountToggle.addEventListener('change', () => {
+        discount.enabled = discountToggle.checked;
+        discountInputGroup.hidden = !discount.enabled;
+        if (discount.enabled) {
+            discount.type = 'percent';
+            discount.value = 10;
+            discountTypeSelect.value = 'percent';
+            discountValueInput.value = 10;
+        }
+        renderCart();
+    });
+
+    discountTypeSelect.addEventListener('change', () => {
+        discount.type = discountTypeSelect.value === 'fixed' ? 'fixed' : 'percent';
+        renderCart();
+    });
+
+    discountValueInput.addEventListener('input', () => {
+        const value = parseFloat(discountValueInput.value);
+        discount.value = isNaN(value) ? 0 : Math.max(0, value);
+        recalcGrandTotalLive();
+    });
+
+    discountValueInput.addEventListener('change', () => {
+        const value = parseFloat(discountValueInput.value);
+        discount.value = isNaN(value) ? 0 : Math.max(0, value);
+        renderCart();
     });
 
     renderCategoryFilters();

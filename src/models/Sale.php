@@ -13,20 +13,26 @@ class Sale
     /**
      * @param array<int, array{product_id:int, quantity:int, unit_price:float}> $items
      */
-    public static function create(int $tenantId, int $userId, array $items, ?string $customerName = null, string $paymentMethod = 'cash', ?int $customerId = null): int
+    public static function create(int $tenantId, int $userId, array $items, ?string $customerName = null, string $paymentMethod = 'cash', ?int $customerId = null, float $discountAmount = 0.0): int
     {
         $db = self::db();
         $db->beginTransaction();
 
         try {
-            $total = 0;
+            $subtotal = 0;
             foreach ($items as $item) {
-                $total += $item['unit_price'] * $item['quantity'];
+                $subtotal += $item['unit_price'] * $item['quantity'];
             }
 
+            // El descuento nunca puede superar el subtotal ni ser negativo:
+            // el total guardado siempre refleja el importe real cobrado, que
+            // es lo que alimenta el balance de caja y los reportes.
+            $discountAmount = max(0.0, min($discountAmount, $subtotal));
+            $total = $subtotal - $discountAmount;
+
             $stmt = $db->prepare(
-                'INSERT INTO sales (tenant_id, user_id, customer_id, customer_name, total, payment_method)
-                 VALUES (:tenant_id, :user_id, :customer_id, :customer_name, :total, :payment_method)'
+                'INSERT INTO sales (tenant_id, user_id, customer_id, customer_name, total, discount_amount, payment_method)
+                 VALUES (:tenant_id, :user_id, :customer_id, :customer_name, :total, :discount_amount, :payment_method)'
             );
             $stmt->execute([
                 'tenant_id' => $tenantId,
@@ -34,6 +40,7 @@ class Sale
                 'customer_id' => $customerId,
                 'customer_name' => $customerName,
                 'total' => $total,
+                'discount_amount' => $discountAmount,
                 'payment_method' => $paymentMethod,
             ]);
             $saleId = (int) $db->lastInsertId();
