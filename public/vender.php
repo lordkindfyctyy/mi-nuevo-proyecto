@@ -148,11 +148,33 @@ function pos_render_nav(array $items, string $currentPage): void
         }
         .pos-cart-items { flex: 1; overflow-y: auto; padding: 0 1.25rem; max-height: 50vh; }
         @media (min-width: 992px) { .pos-cart-items { max-height: none; } }
-        .cart-item { display: flex; align-items: center; gap: .6rem; padding: .65rem 0; border-bottom: 1px solid #f1f2f4; }
+        .cart-item { padding: .75rem 0; border-bottom: 1px solid #f1f2f4; }
+        .cart-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
         .cart-item-name { font-weight: 600; font-size: .85rem; }
-        .cart-item-price { font-size: .75rem; color: #6b7280; }
-        .cart-qty { display: flex; align-items: center; gap: .35rem; }
-        .cart-qty button { width: 1.6rem; height: 1.6rem; padding: 0; line-height: 1; }
+        .cart-item-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: .5rem; margin-top: .5rem; }
+        .cart-item-qty-block { display: flex; flex-direction: column; gap: .35rem; }
+        .cart-item-unit-price { font-size: .72rem; color: #6b7280; }
+        .cart-item-subtotal { min-width: 5rem; text-align: right; }
+        .cart-qty { display: flex; align-items: center; gap: .5rem; }
+        .qty-btn {
+            width: 1.85rem; height: 1.85rem; border-radius: 50%; border: 1px solid var(--color-border);
+            background: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; line-height: 1; padding: 0; color: var(--color-text); flex-shrink: 0;
+        }
+        .qty-btn:hover:not(:disabled) { background: #f3f4f6; }
+        .qty-btn:disabled { opacity: .4; }
+        .qty-input {
+            width: 3rem; text-align: center; border: 1px solid var(--color-border); border-radius: .5rem;
+            padding: .2rem 0; font-weight: 600; font-size: .85rem;
+        }
+        .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .qty-input { -moz-appearance: textfield; }
+        .price-input-inline {
+            border: none; background: transparent; padding: 0; width: 4.5rem;
+            color: inherit; font: inherit;
+        }
+        .price-input-inline:focus { outline: none; border-bottom: 1px dashed #9ca3af; }
+        .price-input-inline::-webkit-outer-spin-button, .price-input-inline::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .pos-cart-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--color-border); }
         .pos-cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.25rem; margin-bottom: .75rem; }
         .pos-continue-btn { width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600; border-radius: .75rem; }
@@ -486,7 +508,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = cart.get(id);
         if (!entry) return;
         if (isNaN(quantity)) quantity = 0;
-        quantity = Math.round(quantity * 1000) / 1000;
+        quantity = entry.product.saleUnit === 'weight'
+            ? Math.round(quantity * 1000) / 1000
+            : Math.round(quantity);
         quantity = Math.max(0, Math.min(quantity, entry.product.stock));
         if (quantity === 0) {
             cart.delete(id);
@@ -511,6 +535,30 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAll();
     }
 
+    // Recalcula el subtotal de una fila y el total general leyendo los
+    // valores que el usuario está tipeando en vivo, sin reconstruir el
+    // DOM (así no se pierde el foco/cursor mientras escribe). El valor
+    // definitivo (redondeo, límites de stock, etc.) se aplica recién en
+    // el evento "change" vía updateQuantity()/updateUnitPrice().
+    function recalcRowLive(row) {
+        const qty = parseFloat(row.querySelector('.qty-input').value);
+        const price = parseFloat(row.querySelector('.price-input-inline').value);
+        const subtotal = (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
+        row.querySelector('.cart-item-subtotal').textContent = formatMoney(subtotal);
+        recalcGrandTotalLive();
+    }
+
+    function recalcGrandTotalLive() {
+        let total = 0;
+        cartListEl.querySelectorAll('.cart-item').forEach((row) => {
+            const qty = parseFloat(row.querySelector('.qty-input').value);
+            const price = parseFloat(row.querySelector('.price-input-inline').value);
+            total += (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
+        });
+        grandTotalEl.textContent = formatMoney(total);
+        submitTotalEl.textContent = formatMoney(total);
+    }
+
     function renderCart() {
         cartListEl.innerHTML = '';
         const hasItems = cart.size > 0;
@@ -521,37 +569,41 @@ document.addEventListener('DOMContentLoaded', () => {
         cart.forEach(({ product, quantity, unitPrice }) => {
             const subtotal = unitPrice * quantity;
             total += subtotal;
+            const step = product.saleUnit === 'weight' ? 0.1 : 1;
+            const unitLabel = product.saleUnit === 'weight' ? 'kg' : 'unidad';
             const row = document.createElement('div');
             row.className = 'cart-item';
             row.innerHTML = `
-                <div class="flex-grow-1" style="min-width:0;">
+                <div class="cart-item-top">
                     <div class="cart-item-name text-truncate">${escapeHtml(product.name)}</div>
-                    <div class="d-flex align-items-center gap-1 cart-item-price">
-                        <span>$</span>
-                        <input type="number" step="0.01" min="0" class="form-control form-control-sm price-input" value="${unitPrice}" style="width:5.5rem;padding:.1rem .35rem;">
-                        <span>c/u</span>
+                    <button type="button" class="btn btn-sm btn-link text-danger remove-btn p-0" aria-label="Quitar"><i class="bi bi-trash"></i></button>
+                </div>
+                <div class="cart-item-bottom">
+                    <div class="cart-item-qty-block">
+                        <div class="cart-qty">
+                            <button type="button" class="qty-btn dec-btn" aria-label="Disminuir">&minus;</button>
+                            <input type="number" step="${step}" min="0" max="${product.stock}" class="qty-input" value="${quantity}">
+                            <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
+                        </div>
+                        <div class="cart-item-unit-price">
+                            Precio por 1 ${unitLabel}: $<input type="number" step="0.01" min="0" class="price-input-inline" value="${unitPrice}">
+                        </div>
                     </div>
+                    <div class="cart-item-subtotal fw-semibold">${formatMoney(subtotal)}</div>
                 </div>
-                <div class="cart-qty">
-                    ${product.saleUnit === 'weight' ? `
-                        <input type="number" step="0.001" min="0.001" max="${product.stock}" class="form-control form-control-sm qty-weight-input" value="${quantity}" style="width:4.5rem;padding:.1rem .35rem;">
-                    ` : `
-                        <button type="button" class="btn btn-outline-secondary btn-sm dec-btn">&minus;</button>
-                        <span class="fw-semibold" style="min-width:1.5rem;text-align:center;">${quantity}</span>
-                        <button type="button" class="btn btn-outline-secondary btn-sm inc-btn" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
-                    `}
-                </div>
-                <div class="text-end fw-semibold" style="min-width:5rem;">${formatMoney(subtotal)}</div>
-                <button type="button" class="btn btn-sm btn-link text-danger remove-btn" aria-label="Quitar"><i class="bi bi-trash"></i></button>
             `;
-            if (product.saleUnit === 'weight') {
-                row.querySelector('.qty-weight-input').addEventListener('change', (e) => updateQuantity(product.id, parseFloat(e.target.value)));
-            } else {
-                row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - 1));
-                row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + 1));
-            }
+            const qtyInput = row.querySelector('.qty-input');
+            const priceInput = row.querySelector('.price-input-inline');
+
+            row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(product.id, quantity - step));
+            row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(product.id, quantity + step));
             row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(product.id));
-            row.querySelector('.price-input').addEventListener('change', (e) => updateUnitPrice(product.id, parseFloat(e.target.value)));
+
+            qtyInput.addEventListener('input', () => recalcRowLive(row));
+            qtyInput.addEventListener('change', (e) => updateQuantity(product.id, parseFloat(e.target.value)));
+            priceInput.addEventListener('input', () => recalcRowLive(row));
+            priceInput.addEventListener('change', (e) => updateUnitPrice(product.id, parseFloat(e.target.value)));
+
             cartListEl.appendChild(row);
         });
 
