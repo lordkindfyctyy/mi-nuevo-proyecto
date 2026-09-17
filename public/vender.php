@@ -149,8 +149,14 @@ function pos_render_nav(array $items, string $currentPage): void
         .pos-cart-items { flex: 1; overflow-y: auto; padding: 0 1.25rem; max-height: 50vh; }
         @media (min-width: 992px) { .pos-cart-items { max-height: none; } }
         .cart-item { padding: .75rem 0; border-bottom: 1px solid #f1f2f4; }
-        .cart-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
-        .cart-item-name { font-weight: 600; font-size: .85rem; }
+        .cart-item-top { display: flex; align-items: center; gap: .6rem; }
+        .cart-item-thumb {
+            width: 36px; height: 36px; border-radius: .5rem; border: 1px solid var(--color-border);
+            background: #f3f4f6; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0; color: #9ca3af; font-size: 1rem;
+        }
+        .cart-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .cart-item-name { font-weight: 600; font-size: .85rem; flex: 1; min-width: 0; }
         .cart-item-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: .5rem; margin-top: .5rem; }
         .cart-item-qty-block { display: flex; flex-direction: column; gap: .35rem; }
         .cart-item-unit-price { font-size: .72rem; color: #6b7280; }
@@ -574,6 +580,9 @@ document.addEventListener('DOMContentLoaded', () => {
             row.className = 'cart-item';
             row.innerHTML = `
                 <div class="cart-item-top">
+                    <div class="cart-item-thumb">
+                        ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                    </div>
                     <div class="cart-item-name text-truncate">${escapeHtml(product.name)}</div>
                     <button type="button" class="btn btn-sm btn-link text-danger remove-btn p-0" aria-label="Quitar"><i class="bi bi-trash"></i></button>
                 </div>
