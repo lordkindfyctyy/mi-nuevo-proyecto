@@ -609,7 +609,7 @@ $whatsappGeneralUrl = $whatsappDigits
                         <div class="cart-item-qty-block">
                             <div class="cart-qty">
                                 <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${entry.quantity <= 0 ? 'disabled' : ''}>&minus;</button>
-                                <input type="number" step="${fractional ? 'any' : '1'}" min="0" max="${product.stock}" class="qty-input" value="${entry.quantity}">
+                                <input type="number" step="${fractional ? 'any' : '1'}" min="${fractional ? '0' : '1'}" max="${product.stock}" class="qty-input" value="${entry.quantity}">
                                 <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${entry.quantity >= product.stock ? 'disabled' : ''}>+</button>
                             </div>
                             <div class="cart-item-unit-price">Precio por 1 ${unitLabel}: ${formatMoney(product.price)}</div>
@@ -645,7 +645,31 @@ $whatsappGeneralUrl = $whatsappDigits
                     });
                 }
 
-                qtyInput.addEventListener('input', () => recalcRowLive(row, product));
+                if (!fractional) {
+                    // Bloquea la tecla de punto/coma antes de que llegue a
+                    // escribirse. Es solo la primera línea de defensa: en
+                    // teclados virtuales (Android/iOS) la tecla decimal no
+                    // siempre dispara "keydown" de forma detectable, así que
+                    // el saneo real ocurre en el handler de "input" de abajo.
+                    qtyInput.addEventListener('keydown', (e) => {
+                        if (['.', ',', '-', 'e', 'E'].includes(e.key)) {
+                            e.preventDefault();
+                        }
+                    });
+                }
+
+                qtyInput.addEventListener('input', () => {
+                    if (!fractional) {
+                        // Truncamos al bloque de dígitos inicial en vez de
+                        // solo quitar el separador: "1.5" debe quedar en
+                        // "1", no convertirse en "15".
+                        const sanitized = (qtyInput.value.match(/^\d*/) || [''])[0];
+                        if (sanitized !== qtyInput.value) {
+                            qtyInput.value = sanitized;
+                        }
+                    }
+                    recalcRowLive(row, product);
+                });
                 qtyInput.addEventListener('change', (e) => updateQuantity(id, parseFloat(e.target.value)));
                 cartItemsListEl.appendChild(row);
             });
