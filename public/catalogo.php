@@ -37,6 +37,7 @@ $productsData = array_map(fn($p) => [
     'sku' => $p['sku'] ?? '',
     'price' => (float) $p['price'],
     'stock' => (float) $p['stock_quantity'],
+    'saleUnit' => $p['sale_unit'] ?? 'unit',
     'category' => $p['category'] ?? '',
     'brand' => $p['brand'] ?? '',
     'image' => Product::imageUrl($p) ?? '',
@@ -345,6 +346,16 @@ $whatsappGeneralUrl = $whatsappDigits
             return products.find((p) => p.id === id);
         }
 
+        // Un producto se vende fraccionado/por peso si así está marcado en
+        // Inventario (saleUnit === 'weight'), o como respaldo, si su
+        // nombre/SKU/categoría menciona "suelto", "fraccionad..." o "por
+        // peso" (para productos cargados sin marcar ese campo).
+        function isFractionalProduct(product) {
+            if (product.saleUnit === 'weight') return true;
+            const haystack = `${product.name || ''} ${product.sku || ''} ${product.category || ''}`.toLowerCase();
+            return /suelto|fraccionad|por peso/.test(haystack);
+        }
+
         function cartQuantity(id) {
             return cart.get(id)?.quantity || 0;
         }
@@ -368,7 +379,10 @@ $whatsappGeneralUrl = $whatsappDigits
             if (!product) return;
             const current = cartQuantity(id);
             if (current >= product.stock) return;
-            cart.set(id, { quantity: current + 1 });
+            // Limitado al stock disponible: para un fraccionado con menos de
+            // 1 unidad en stock (ej. 0.75 kg), el primer "Agregar" no debe
+            // pasarse de lo que realmente hay.
+            cart.set(id, { quantity: Math.min(current + 1, product.stock) });
             saveCart();
             renderGrid();
             renderCart();
@@ -378,7 +392,10 @@ $whatsappGeneralUrl = $whatsappDigits
             const product = findProduct(id);
             if (!product) return;
             if (isNaN(quantity)) quantity = 0;
-            quantity = Math.max(0, Math.min(Math.round(quantity), product.stock));
+            quantity = isFractionalProduct(product)
+                ? Math.round(quantity * 100) / 100
+                : Math.round(quantity);
+            quantity = Math.max(0, Math.min(quantity, product.stock));
             // Llegar a 0 no saca la fila del carrito: el producto sigue ahí,
             // en $0, hasta que se aumente de nuevo o se borre con el tacho.
             cart.set(id, { quantity });
@@ -566,6 +583,10 @@ $whatsappGeneralUrl = $whatsappDigits
                 const subtotal = product.price * entry.quantity;
                 total += subtotal;
 
+                const fractional = isFractionalProduct(product);
+                const step = fractional ? 0.5 : 1;
+                const unitLabel = fractional ? 'kg' : 'unidad';
+
                 const row = document.createElement('div');
                 row.className = 'cart-item-row';
                 row.dataset.productId = product.id;
@@ -581,17 +602,17 @@ $whatsappGeneralUrl = $whatsappDigits
                         <div class="cart-item-qty-block">
                             <div class="cart-qty">
                                 <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${entry.quantity <= 0 ? 'disabled' : ''}>&minus;</button>
-                                <input type="number" step="1" min="0" max="${product.stock}" class="qty-input" value="${entry.quantity}">
+                                <input type="number" step="${fractional ? '0.01' : '1'}" min="0" max="${product.stock}" class="qty-input" value="${entry.quantity}">
                                 <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${entry.quantity >= product.stock ? 'disabled' : ''}>+</button>
                             </div>
-                            <div class="cart-item-unit-price">Precio por 1 unidad: ${formatMoney(product.price)}</div>
+                            <div class="cart-item-unit-price">Precio por 1 ${unitLabel}: ${formatMoney(product.price)}</div>
                         </div>
                         <div class="cart-item-subtotal fw-semibold">${formatMoney(subtotal)}</div>
                     </div>
                 `;
                 const qtyInput = row.querySelector('.qty-input');
-                row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(id, entry.quantity - 1));
-                row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(id, entry.quantity + 1));
+                row.querySelector('.dec-btn').addEventListener('click', () => updateQuantity(id, entry.quantity - step));
+                row.querySelector('.inc-btn').addEventListener('click', () => updateQuantity(id, entry.quantity + step));
                 row.querySelector('.remove-btn').addEventListener('click', () => removeFromCart(id));
                 qtyInput.addEventListener('input', () => recalcRowLive(row, product));
                 qtyInput.addEventListener('change', (e) => updateQuantity(id, parseFloat(e.target.value)));
@@ -620,7 +641,10 @@ $whatsappGeneralUrl = $whatsappDigits
                 if (!product || entry.quantity <= 0) return;
                 const subtotal = product.price * entry.quantity;
                 total += subtotal;
-                lines.push(`- ${product.name} x${entry.quantity} = ${formatMoney(subtotal)}`);
+                const line = isFractionalProduct(product)
+                    ? `- ${entry.quantity} kg de ${product.name} = ${formatMoney(subtotal)}`
+                    : `- ${product.name} x${entry.quantity} = ${formatMoney(subtotal)}`;
+                lines.push(line);
             });
             lines.push('', `Total: ${formatMoney(total)}`);
             return lines.join('\n');
