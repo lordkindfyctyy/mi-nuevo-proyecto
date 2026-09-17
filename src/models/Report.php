@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/database.php';
 
 class Report
 {
-    public const PERIODS = ['day', 'week', 'month', 'year'];
+    public const PERIODS = ['day', 'week', 'month', 'year', 'custom'];
 
     private static function db(): PDO
     {
@@ -16,91 +16,152 @@ class Report
         return in_array($period, self::PERIODS, true) ? $period : 'day';
     }
 
-    public static function periodLabel(string $period): string
+    private static function parseDate(?string $value): ?DateTimeImmutable
     {
-        return [
-            'day' => 'Hoy',
-            'week' => 'Últimos 7 días',
-            'month' => 'Este mes',
-            'year' => 'Este año',
-        ][self::normalizePeriod($period)];
+        if (!$value) {
+            return null;
+        }
+        $date = DateTimeImmutable::createFromFormat('Y-m-d', $value);
+
+        return $date ?: null;
     }
 
     /**
-     * SQL condition for the given period. $period is always normalized
-     * through normalizePeriod() before reaching here, and $column is only
-     * ever a hardcoded literal passed by this class, never user input.
+     * "Now" according to the database server, not the PHP process. sales.
+     * created_at is stamped by MySQL's own CURRENT_TIMESTAMP, and PHP's
+     * timezone can drift from the DB server's (e.g. PHP on Europe/Berlin,
+     * MySQL on system/UTC) — using PHP's own clock to compute "today"/"this
+     * week" boundaries would silently exclude same-day sales in that case.
      */
-    private static function periodCondition(string $period, string $column = 'created_at'): string
+    private static function dbNow(): DateTimeImmutable
     {
-        return match ($period) {
-            'week' => "$column >= (CURDATE() - INTERVAL 6 DAY)",
-            'month' => "$column >= DATE_FORMAT(CURDATE(), '%Y-%m-01')",
-            'year' => "$column >= DATE_FORMAT(CURDATE(), '%Y-01-01')",
-            default => "DATE($column) = CURDATE()",
-        };
+        $now = self::db()->query('SELECT NOW() AS now')->fetch()['now'];
+
+        return new DateTimeImmutable($now);
     }
 
-    public static function totalSold(int $tenantId, string $period = 'day'): float
+    /**
+     * Resolves a period keyword (or an explicit custom start/end) into a
+     * concrete datetime window plus a human label, so every metric on the
+     * Balance page (totals, charts, sale list) always filters by the exact
+     * same range. Falls back to "day" when a custom range is missing or
+     * invalid instead of failing the page.
+     *
+     * @return array{period:string, start:string, end:string, label:string, startInput:string, endInput:string}
+     */
+    public static function resolveRange(string $period, ?string $customStart = null, ?string $customEnd = null): array
     {
         $period = self::normalizePeriod($period);
-        $condition = self::periodCondition($period);
+        $now = self::dbNow();
 
-        $stmt = self::db()->prepare(
-            "SELECT COALESCE(SUM(total), 0) AS total
-             FROM sales
-             WHERE tenant_id = :tenant_id AND status = 'completed' AND $condition"
-        );
-        $stmt->execute(['tenant_id' => $tenantId]);
+        if ($period === 'custom') {
+            $start = self::parseDate($customStart);
+            $end = self::parseDate($customEnd);
+            if ($start && $end && $start <= $end) {
+                return [
+                    'period' => 'custom',
+                    'start' => $start->format('Y-m-d 00:00:00'),
+                    'end' => $end->format('Y-m-d 23:59:59'),
+                    'label' => $start->format('d/m/Y') . ' - ' . $end->format('d/m/Y'),
+                    'startInput' => $start->format('Y-m-d'),
+                    'endInput' => $end->format('Y-m-d'),
+                ];
+            }
+            $period = 'day';
+        }
 
-        return (float) $stmt->fetch()['total'];
+        $dayOfWeek = (int) $now->format('N'); // 1 (lunes) .. 7 (domingo)
+        $start = match ($period) {
+            'week' => $now->modify('-' . ($dayOfWeek - 1) . ' days'),
+            'month' => $now->modify('first day of this month'),
+            'year' => new DateTimeImmutable($now->format('Y') . '-01-01'),
+            default => $now,
+        };
+        $label = [
+            'day' => 'Hoy',
+            'week' => 'Esta semana',
+            'month' => 'Este mes',
+            'year' => 'Este año',
+        ][$period];
+
+        return [
+            'period' => $period,
+            'start' => $start->format('Y-m-d 00:00:00'),
+            'end' => $now->format('Y-m-d H:i:s'),
+            'label' => $label,
+            'startInput' => $start->format('Y-m-d'),
+            'endInput' => $now->format('Y-m-d'),
+        ];
     }
 
-    public static function topProduct(int $tenantId, string $period = 'day'): ?array
+    /**
+     * Total facturado, cantidad de ventas y ticket promedio para el rango
+     * dado: las tres métricas principales del encabezado del Balance.
+     *
+     * @param array{start:string, end:string} $range
+     * @return array{count:int, total:float, average:float}
+     */
+    public static function summary(int $tenantId, array $range): array
     {
-        $products = self::topProducts($tenantId, $period, 1);
+        $stmt = self::db()->prepare(
+            "SELECT COUNT(*) AS sales_count, COALESCE(SUM(total), 0) AS total, COALESCE(AVG(total), 0) AS average
+             FROM sales
+             WHERE tenant_id = :tenant_id AND status = 'completed' AND created_at BETWEEN :start AND :end"
+        );
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $range['start'], 'end' => $range['end']]);
+        $row = $stmt->fetch();
+
+        return [
+            'count' => (int) $row['sales_count'],
+            'total' => (float) $row['total'],
+            'average' => (float) $row['average'],
+        ];
+    }
+
+    public static function topProduct(int $tenantId, array $range): ?array
+    {
+        $products = self::topProducts($tenantId, $range, 1);
 
         return $products[0] ?? null;
     }
 
-    public static function topProducts(int $tenantId, string $period = 'day', int $limit = 5): array
+    /**
+     * @param array{start:string, end:string} $range
+     */
+    public static function topProducts(int $tenantId, array $range, int $limit = 5): array
     {
-        $period = self::normalizePeriod($period);
-        $condition = self::periodCondition($period, 's.created_at');
-
         $stmt = self::db()->prepare(
             "SELECT p.id, p.name, SUM(si.quantity) AS quantity_sold
              FROM sale_items si
              JOIN sales s ON s.id = si.sale_id
              JOIN products p ON p.id = si.product_id
-             WHERE s.tenant_id = :tenant_id AND s.status = 'completed' AND $condition
+             WHERE s.tenant_id = :tenant_id AND s.status = 'completed' AND s.created_at BETWEEN :start AND :end
              GROUP BY p.id, p.name
              ORDER BY quantity_sold DESC
              LIMIT " . max(1, $limit)
         );
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $range['start'], 'end' => $range['end']]);
 
         return $stmt->fetchAll();
     }
 
     /**
-     * Revenue, cost and margin for the given period. The cost side uses
-     * each product's current cost (not a historical snapshot), since that
-     * is the only cost data the schema tracks.
+     * Revenue, cost and margin for the given range. The cost side uses each
+     * product's current cost (not a historical snapshot), since that is the
+     * only cost data the schema tracks.
+     *
+     * @param array{start:string, end:string} $range
      */
-    public static function margin(int $tenantId, string $period = 'day'): array
+    public static function margin(int $tenantId, array $range): array
     {
-        $period = self::normalizePeriod($period);
-        $condition = self::periodCondition($period, 's.created_at');
-
         $stmt = self::db()->prepare(
             "SELECT COALESCE(SUM(si.subtotal), 0) AS revenue, COALESCE(SUM(si.quantity * p.cost), 0) AS cost
              FROM sale_items si
              JOIN sales s ON s.id = si.sale_id
              JOIN products p ON p.id = si.product_id
-             WHERE s.tenant_id = :tenant_id AND s.status = 'completed' AND $condition"
+             WHERE s.tenant_id = :tenant_id AND s.status = 'completed' AND s.created_at BETWEEN :start AND :end"
         );
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $range['start'], 'end' => $range['end']]);
         $row = $stmt->fetch();
 
         $revenue = (float) $row['revenue'];
@@ -116,41 +177,46 @@ class Report
     }
 
     /**
-     * Sales totals bucketed to match the period: hourly for "day", daily for
-     * "week"/"month", monthly for "year". Each series runs from the start of
-     * the period up to now, with empty buckets filled as zero.
+     * Sales totals bucketed by hour (single-day range) or by day/month
+     * depending on how wide the range is, so a custom range of any length
+     * still renders a sensible chart.
      *
+     * @param array{period:string, start:string, end:string} $range
      * @return array<int, array{label: string, total: float}>
      */
-    public static function salesTrend(int $tenantId, string $period = 'day'): array
+    public static function salesTrend(int $tenantId, array $range): array
     {
-        $period = self::normalizePeriod($period);
+        if ($range['period'] === 'day') {
+            return self::hourlyTrend($tenantId, $range);
+        }
 
-        return match ($period) {
-            'week' => self::dailyTrend($tenantId, 6),
-            'month' => self::dailyTrend($tenantId, (int) date('j') - 1, true),
-            'year' => self::monthlyTrend($tenantId),
-            default => self::hourlyTrend($tenantId),
-        };
+        $startDate = new DateTimeImmutable(substr($range['start'], 0, 10));
+        $endDate = new DateTimeImmutable(substr($range['end'], 0, 10));
+        $daySpan = (int) $startDate->diff($endDate)->days;
+
+        return $daySpan <= 31
+            ? self::dailyTrend($tenantId, $range)
+            : self::monthlyTrend($tenantId, $range);
     }
 
-    private static function hourlyTrend(int $tenantId): array
+    private static function hourlyTrend(int $tenantId, array $range): array
     {
         $stmt = self::db()->prepare(
             "SELECT HOUR(created_at) AS bucket, SUM(total) AS total
              FROM sales
-             WHERE tenant_id = :tenant_id AND status = 'completed' AND DATE(created_at) = CURDATE()
+             WHERE tenant_id = :tenant_id AND status = 'completed' AND created_at BETWEEN :start AND :end
              GROUP BY HOUR(created_at)"
         );
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $range['start'], 'end' => $range['end']]);
 
         $byHour = [];
         foreach ($stmt->fetchAll() as $row) {
             $byHour[(int) $row['bucket']] = (float) $row['total'];
         }
 
+        $currentHour = (int) (new DateTimeImmutable($range['end']))->format('G');
         $result = [];
-        for ($h = 0; $h <= (int) date('G'); $h++) {
+        for ($h = 0; $h <= $currentHour; $h++) {
             $result[] = ['label' => sprintf('%02d:00', $h), 'total' => $byHour[$h] ?? 0.0];
         }
 
@@ -158,23 +224,17 @@ class Report
     }
 
     /**
-     * Daily totals for the last $daysBack days up to today.
-     * When $fromMonthStart is true, days are numbered from the 1st of the
-     * current month instead of counting back from today.
+     * Daily totals across every day in the range (inclusive on both ends).
      */
-    private static function dailyTrend(int $tenantId, int $daysBack, bool $fromMonthStart = false): array
+    private static function dailyTrend(int $tenantId, array $range): array
     {
-        $startCondition = $fromMonthStart
-            ? "created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"
-            : "created_at >= (CURDATE() - INTERVAL $daysBack DAY)";
-
         $stmt = self::db()->prepare(
             "SELECT DATE(created_at) AS day, SUM(total) AS total
              FROM sales
-             WHERE tenant_id = :tenant_id AND status = 'completed' AND $startCondition
+             WHERE tenant_id = :tenant_id AND status = 'completed' AND created_at BETWEEN :start AND :end
              GROUP BY DATE(created_at)"
         );
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $range['start'], 'end' => $range['end']]);
 
         $byDate = [];
         foreach ($stmt->fetchAll() as $row) {
@@ -182,25 +242,29 @@ class Report
         }
 
         $result = [];
-        for ($i = $daysBack; $i >= 0; $i--) {
-            $date = date('Y-m-d', strtotime("-{$i} day"));
-            $label = $fromMonthStart ? date('j', strtotime($date)) : date('d/m', strtotime($date));
-            $result[] = ['label' => (string) $label, 'total' => $byDate[$date] ?? 0.0];
+        $cursor = new DateTimeImmutable(substr($range['start'], 0, 10));
+        $endDate = new DateTimeImmutable(substr($range['end'], 0, 10));
+        while ($cursor <= $endDate) {
+            $key = $cursor->format('Y-m-d');
+            $result[] = ['label' => $cursor->format('d/m'), 'total' => $byDate[$key] ?? 0.0];
+            $cursor = $cursor->modify('+1 day');
         }
 
         return $result;
     }
 
-    private static function monthlyTrend(int $tenantId): array
+    /**
+     * Monthly totals across every month in the range (inclusive on both ends).
+     */
+    private static function monthlyTrend(int $tenantId, array $range): array
     {
         $stmt = self::db()->prepare(
             "SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, SUM(total) AS total
              FROM sales
-             WHERE tenant_id = :tenant_id AND status = 'completed'
-               AND created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')
+             WHERE tenant_id = :tenant_id AND status = 'completed' AND created_at BETWEEN :start AND :end
              GROUP BY DATE_FORMAT(created_at, '%Y-%m')"
         );
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $range['start'], 'end' => $range['end']]);
 
         $byMonth = [];
         foreach ($stmt->fetchAll() as $row) {
@@ -209,9 +273,12 @@ class Report
 
         $monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         $result = [];
-        for ($m = 1; $m <= (int) date('n'); $m++) {
-            $ym = date('Y') . '-' . sprintf('%02d', $m);
-            $result[] = ['label' => $monthNames[$m - 1], 'total' => $byMonth[$ym] ?? 0.0];
+        $cursor = (new DateTimeImmutable(substr($range['start'], 0, 10)))->modify('first day of this month');
+        $endCursor = (new DateTimeImmutable(substr($range['end'], 0, 10)))->modify('first day of this month');
+        while ($cursor <= $endCursor) {
+            $ym = $cursor->format('Y-m');
+            $result[] = ['label' => $monthNames[(int) $cursor->format('n') - 1], 'total' => $byMonth[$ym] ?? 0.0];
+            $cursor = $cursor->modify('first day of next month');
         }
 
         return $result;

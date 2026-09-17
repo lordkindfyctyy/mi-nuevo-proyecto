@@ -120,6 +120,24 @@ class Sale
         return $stmt->fetchAll();
     }
 
+    /**
+     * Like allByTenant(), but scoped to a "YYYY-MM-DD HH:MM:SS" datetime
+     * range (inclusive on both ends) for the Balance page's period filter.
+     */
+    public static function findByDateRangeForTenant(int $tenantId, string $start, string $end): array
+    {
+        $stmt = self::db()->prepare(
+            'SELECT s.*, u.name AS seller_name
+             FROM sales s
+             JOIN users u ON u.id = s.user_id
+             WHERE s.tenant_id = :tenant_id AND s.created_at BETWEEN :start AND :end
+             ORDER BY s.created_at DESC'
+        );
+        $stmt->execute(['tenant_id' => $tenantId, 'start' => $start, 'end' => $end]);
+
+        return $stmt->fetchAll();
+    }
+
     public static function cancel(int $id): bool
     {
         $stmt = self::db()->prepare("UPDATE sales SET status = 'cancelled' WHERE id = :id");
