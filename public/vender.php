@@ -178,11 +178,12 @@ function pos_render_nav(array $items, string $currentPage): void
         .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .qty-input { -moz-appearance: textfield; }
         .price-input-inline {
-            border: none; background: transparent; padding: 0; width: 4.5rem;
-            color: inherit; font: inherit;
+            border: none; border-bottom: 1px dashed #9ca3af; background: transparent; padding: 0 0 1px; width: 4.5rem;
+            color: inherit; font: inherit; cursor: text;
         }
-        .price-input-inline:focus { outline: none; border-bottom: 1px dashed #9ca3af; }
+        .price-input-inline:focus { outline: none; border-bottom: 1px dashed var(--color-primary); }
         .price-input-inline::-webkit-outer-spin-button, .price-input-inline::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .cart-item-unit-price .bi-pencil-fill { font-size: .62rem; opacity: .55; margin-left: .15rem; }
         .pos-cart-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--color-border); }
         .pos-cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.25rem; margin-bottom: .75rem; }
         .pos-continue-btn { width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600; border-radius: .75rem; }
@@ -602,7 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
                         </div>
                         <div class="cart-item-unit-price">
-                            Precio por 1 ${unitLabel}: $<input type="number" step="0.01" min="0" class="price-input-inline" value="${unitPrice}">
+                            Precio por 1 ${unitLabel}: $<input type="number" step="0.01" min="0" class="price-input-inline" value="${unitPrice}" title="Editar precio de esta venta"><i class="bi bi-pencil-fill"></i>
                         </div>
                     </div>
                     <div class="cart-item-subtotal fw-semibold">${formatMoney(subtotal)}</div>
