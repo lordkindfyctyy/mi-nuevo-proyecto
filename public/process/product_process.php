@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/tenant_context.php';
+require_once __DIR__ . '/../../includes/image_upload.php';
 require_once __DIR__ . '/../../src/models/Product.php';
 requireLogin();
 
@@ -16,60 +17,6 @@ if (!$tenantId) {
     exit;
 }
 
-/**
- * Validates and stores an uploaded product photo under public/uploads/,
- * with a server-generated unique name and an extension derived from the
- * file's real detected type (never from the client-supplied filename).
- *
- * @return array{provided: bool, path: ?string, error: ?string}
- */
-function processUploadedProductImage(): array
-{
-    if (!isset($_FILES['imagen']) || $_FILES['imagen']['error'] === UPLOAD_ERR_NO_FILE) {
-        return ['provided' => false, 'path' => null, 'error' => null];
-    }
-
-    if ($_FILES['imagen']['error'] !== UPLOAD_ERR_OK) {
-        return ['provided' => true, 'path' => null, 'error' => 'upload'];
-    }
-
-    $maxBytes = 5 * 1024 * 1024;
-    if ($_FILES['imagen']['size'] > $maxBytes) {
-        return ['provided' => true, 'path' => null, 'error' => 'size'];
-    }
-
-    $imageInfo = @getimagesize($_FILES['imagen']['tmp_name']);
-    $mimeToExt = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-
-    if ($imageInfo === false || !isset($mimeToExt[$imageInfo['mime']])) {
-        return ['provided' => true, 'path' => null, 'error' => 'type'];
-    }
-
-    $uploadDir = __DIR__ . '/../uploads/';
-    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-        return ['provided' => true, 'path' => null, 'error' => 'upload'];
-    }
-
-    $filename = uniqid('prod_', true) . '.' . $mimeToExt[$imageInfo['mime']];
-    if (!move_uploaded_file($_FILES['imagen']['tmp_name'], $uploadDir . $filename)) {
-        return ['provided' => true, 'path' => null, 'error' => 'upload'];
-    }
-
-    return ['provided' => true, 'path' => 'uploads/' . $filename, 'error' => null];
-}
-
-function deleteProductImageFile(?string $relativePath): void
-{
-    if (!$relativePath) {
-        return;
-    }
-
-    $fullPath = __DIR__ . '/../' . $relativePath;
-    if (is_file($fullPath)) {
-        @unlink($fullPath);
-    }
-}
-
 try {
     if ($action === 'create') {
         $name = trim($_POST['name'] ?? '');
@@ -80,7 +27,7 @@ try {
             exit;
         }
 
-        $upload = processUploadedProductImage();
+        $upload = process_uploaded_image('imagen', 'prod');
         if ($upload['error']) {
             header('Location: ' . BASE_URL . '/productos.php?error=' . $upload['error']);
             exit;
@@ -118,7 +65,7 @@ try {
             exit;
         }
 
-        $upload = processUploadedProductImage();
+        $upload = process_uploaded_image('imagen', 'prod');
         if ($upload['error']) {
             header('Location: ' . BASE_URL . '/productos.php?error=' . $upload['error']);
             exit;
@@ -126,10 +73,10 @@ try {
 
         $imagen = $product['imagen'];
         if ($upload['provided'] && $upload['path']) {
-            deleteProductImageFile($product['imagen']);
+            delete_uploaded_image_file($product['imagen']);
             $imagen = $upload['path'];
         } elseif (isset($_POST['remove_image'])) {
-            deleteProductImageFile($product['imagen']);
+            delete_uploaded_image_file($product['imagen']);
             $imagen = null;
         }
 
@@ -155,7 +102,7 @@ try {
         $product = Product::findForTenant($id, $tenantId);
 
         if ($product) {
-            deleteProductImageFile($product['imagen']);
+            delete_uploaded_image_file($product['imagen']);
             Product::delete($id);
         }
 

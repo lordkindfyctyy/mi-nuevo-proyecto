@@ -12,8 +12,8 @@ class Customer
     public static function create(int $tenantId, string $name, array $data = []): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO customers (tenant_id, name, phone, email, address, notes)
-             VALUES (:tenant_id, :name, :phone, :email, :address, :notes)'
+            'INSERT INTO customers (tenant_id, name, phone, email, address, notes, imagen)
+             VALUES (:tenant_id, :name, :phone, :email, :address, :notes, :imagen)'
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
@@ -22,6 +22,7 @@ class Customer
             'email' => $data['email'] ?? null,
             'address' => $data['address'] ?? null,
             'notes' => $data['notes'] ?? null,
+            'imagen' => $data['imagen'] ?? null,
         ]);
 
         return (int) self::db()->lastInsertId();
@@ -53,7 +54,7 @@ class Customer
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'phone', 'email', 'address', 'notes'] as $field) {
+        foreach (['name', 'phone', 'email', 'address', 'notes', 'imagen'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];
@@ -74,5 +75,14 @@ class Customer
         $stmt = self::db()->prepare('DELETE FROM customers WHERE id = :id');
 
         return $stmt->execute(['id' => $id]);
+    }
+
+    public static function imageUrl(array $customer): ?string
+    {
+        if (!empty($customer['imagen'])) {
+            return BASE_URL . '/' . ltrim($customer['imagen'], '/');
+        }
+
+        return null;
     }
 }

@@ -30,7 +30,16 @@ $paymentLabels = [
     <div class="alert alert-success"><?= $_GET['success'] === 'deleted' ? 'Cliente eliminado.' : 'Cliente guardado correctamente.' ?></div>
 <?php endif; ?>
 <?php if (isset($_GET['error'])): ?>
-    <div class="alert alert-danger">No se pudo guardar el cliente. Revisa los datos e intenta de nuevo.</div>
+    <div class="alert alert-danger">
+        <?php
+        $customerErrors = [
+            'size' => 'La imagen supera el tamaño máximo permitido (5 MB).',
+            'type' => 'El archivo debe ser una imagen válida (JPG, PNG, GIF o WEBP).',
+            'upload' => 'Ocurrió un error al subir la imagen. Intenta de nuevo.',
+        ];
+        echo $customerErrors[$_GET['error']] ?? 'No se pudo guardar el cliente. Revisa los datos e intenta de nuevo.';
+        ?>
+    </div>
 <?php endif; ?>
 
 <?php if (!$tenantId): ?>
@@ -40,7 +49,7 @@ $paymentLabels = [
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <h2 class="h5 fw-semibold mb-3"><?= $editing ? 'Editar cliente' : 'Nuevo cliente' ?></h2>
-        <form method="POST" action="<?= BASE_URL ?>/process/customer_process.php" class="row g-3">
+        <form method="POST" action="<?= BASE_URL ?>/process/customer_process.php" enctype="multipart/form-data" class="row g-3">
             <input type="hidden" name="action" value="<?= $editing ? 'update' : 'create' ?>">
             <?php if ($editing): ?>
                 <input type="hidden" name="id" value="<?= (int) $editing['id'] ?>">
@@ -66,6 +75,26 @@ $paymentLabels = [
                 <label for="notes" class="form-label">Notas</label>
                 <input type="text" id="notes" name="notes" class="form-control" placeholder="Ej: prefiere entrega los sábados" value="<?= htmlspecialchars($editing['notes'] ?? '') ?>">
             </div>
+            <div class="col-md-8">
+                <label for="imagen" class="form-label">Foto del cliente</label>
+                <div class="d-flex align-items-center gap-3">
+                    <?php $currentImage = $editing ? Customer::imageUrl($editing) : null; ?>
+                    <?php if ($currentImage): ?>
+                        <img src="<?= htmlspecialchars($currentImage) ?>" alt="" class="rounded-circle border" style="width:56px;height:56px;object-fit:cover;flex-shrink:0;">
+                    <?php endif; ?>
+                    <div class="flex-grow-1">
+                        <input type="file" id="imagen" name="imagen" class="form-control" accept="image/*">
+                        <?php if ($currentImage): ?>
+                            <div class="form-check mt-1">
+                                <input type="checkbox" class="form-check-input" id="remove_image" name="remove_image" value="1">
+                                <label class="form-check-label small text-secondary" for="remove_image">Quitar foto actual</label>
+                            </div>
+                        <?php else: ?>
+                            <div class="form-text">JPG, PNG, GIF o WEBP. Máximo 5 MB. Opcional.</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
             <div class="col-12 d-flex gap-2">
                 <button type="submit" class="btn btn-primary rounded-pill px-4"><?= $editing ? 'Guardar cambios' : 'Agregar cliente' ?></button>
                 <?php if ($editing): ?>
@@ -89,6 +118,7 @@ $paymentLabels = [
     <table class="table align-middle">
         <thead>
             <tr>
+                <th>Foto</th>
                 <th>Nombre</th>
                 <th>Teléfono</th>
                 <th>Email</th>
@@ -101,6 +131,16 @@ $paymentLabels = [
             <?php foreach ($customers as $customer): ?>
                 <?php $customerStats = $stats[(int) $customer['id']] ?? ['count' => 0, 'total' => 0.0]; ?>
                 <tr data-name="<?= htmlspecialchars(mb_strtolower($customer['name'])) ?>" data-phone="<?= htmlspecialchars(mb_strtolower($customer['phone'] ?? '')) ?>" data-email="<?= htmlspecialchars(mb_strtolower($customer['email'] ?? '')) ?>">
+                    <td>
+                        <?php $thumb = Customer::imageUrl($customer); ?>
+                        <?php if ($thumb): ?>
+                            <img src="<?= htmlspecialchars($thumb) ?>" alt="" class="rounded-circle border" style="width:40px;height:40px;object-fit:cover;">
+                        <?php else: ?>
+                            <span class="d-inline-flex align-items-center justify-content-center rounded-circle border bg-light text-secondary" style="width:40px;height:40px;">
+                                <i class="bi bi-person"></i>
+                            </span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= htmlspecialchars($customer['name']) ?></td>
                     <td><?= htmlspecialchars($customer['phone'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($customer['email'] ?? '—') ?></td>
@@ -125,7 +165,7 @@ $paymentLabels = [
                 </tr>
                 <?php if ($customerStats['count'] > 0): ?>
                     <tr class="collapse" id="customer-history-<?= (int) $customer['id'] ?>">
-                        <td colspan="6" class="bg-light">
+                        <td colspan="7" class="bg-light">
                             <table class="table table-sm mb-0">
                                 <thead>
                                     <tr>
@@ -157,7 +197,7 @@ $paymentLabels = [
                 <?php endif; ?>
             <?php endforeach; ?>
             <?php if (!$customers): ?>
-                <tr><td colspan="6" class="text-center text-secondary py-4">No hay clientes registrados todavía.</td></tr>
+                <tr><td colspan="7" class="text-center text-secondary py-4">No hay clientes registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

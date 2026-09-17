@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS customers (
     email VARCHAR(150) NULL,
     address VARCHAR(255) NULL,
     notes TEXT NULL,
+    imagen VARCHAR(255) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_customers_tenant (tenant_id),
