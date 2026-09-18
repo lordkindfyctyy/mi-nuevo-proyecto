@@ -201,13 +201,17 @@ function pos_render_nav(array $items, string $currentPage): void
         .pos-cart-empty { text-align: center; color: #9ca3af; padding: 2rem 1rem; }
 
         #voice-btn.listening {
-            background: var(--color-primary); color: #fff; border-color: var(--color-primary);
+            background: #dc3545; color: #fff; border-color: #dc3545;
             animation: voice-pulse 1.5s infinite;
         }
+        #voice-btn.processing {
+            background: #f59e0b; color: #fff; border-color: #f59e0b;
+            opacity: .85;
+        }
         @keyframes voice-pulse {
-            0% { box-shadow: 0 0 0 0 rgba(0, 178, 143, .5); }
-            70% { box-shadow: 0 0 0 .6rem rgba(0, 178, 143, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 178, 143, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, .5); }
+            70% { box-shadow: 0 0 0 .6rem rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
     </style>
 </head>
@@ -276,30 +280,6 @@ function pos_render_nav(array $items, string $currentPage): void
                         <input type="tel" name="whatsapp_phone" class="form-control form-control-sm" placeholder="573001234567" value="<?= htmlspecialchars($tenant['whatsapp_phone'] ?? '') ?>">
                         <button type="submit" class="btn btn-primary btn-sm text-nowrap">Guardar</button>
                     </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="voiceConfirmModal" tabindex="-1" aria-labelledby="voiceConfirmModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="voiceConfirmModalLabel">Confirmar venta por voz</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <p>¿Confirmas registrar esta venta?</p>
-                    <div id="voice-confirm-summary" class="small"></div>
-                    <div class="d-flex justify-content-between fw-bold border-top pt-2 mt-2">
-                        <span>Total</span>
-                        <span id="voice-confirm-total">$0.00</span>
-                    </div>
-                    <p class="text-secondary small mt-3 mb-0">Podés decir <strong>&laquo;confirmar&raquo;</strong> para registrarla o <strong>&laquo;cancelar&raquo;</strong> para volver.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" id="voice-cancel-btn">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="voice-confirm-btn">Sí, registrar venta</button>
                 </div>
             </div>
         </div>
@@ -446,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    const BASE_URL = <?= json_encode(BASE_URL) ?>;
     const products = <?= $productsJson ?: '[]' ?>;
     const cart = new Map();
     let activeCategory = 'all';
@@ -824,42 +805,20 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
     focusSearch();
 
-    // --- Comandos de voz ---
+    // --- Comando de voz por IA (graba audio y lo manda a api/procesar_comando_voz.php) ---
     const voiceBtn = document.getElementById('voice-btn');
     const voiceIcon = document.getElementById('voice-icon');
     const voiceFeedbackEl = document.getElementById('voice-feedback');
-    const voiceConfirmModalEl = document.getElementById('voiceConfirmModal');
-    const voiceConfirmSummaryEl = document.getElementById('voice-confirm-summary');
-    const voiceConfirmTotalEl = document.getElementById('voice-confirm-total');
-    const voiceConfirmBtn = document.getElementById('voice-confirm-btn');
-    const voiceCancelBtn = document.getElementById('voice-cancel-btn');
-    const saleForm = document.getElementById('sale-form');
 
-    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognitionCtor) {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
         voiceBtn.disabled = true;
-        voiceBtn.title = 'Tu navegador no soporta comandos de voz (usa Chrome o Edge).';
+        voiceBtn.title = 'Tu navegador no soporta grabación de audio (usa Chrome o Edge).';
     } else {
-        const recognition = new SpeechRecognitionCtor();
-        recognition.lang = 'es-ES';
-        recognition.continuous = true;
-        recognition.interimResults = false;
-
-        const voiceConfirmModal = bootstrap.Modal.getOrCreateInstance(voiceConfirmModalEl);
-        let listening = false;
-        let awaitingConfirmation = false;
-        let isSpeaking = false;
-
-        const numberWords = {
-            un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
-            siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13,
-            catorce: 14, quince: 15, veinte: 20,
-        };
-
-        function normalizeVoiceText(text) {
-            return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-        }
+        const MAX_RECORDING_MS = 15000;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recording = false;
+        let autoStopTimer = null;
 
         function showVoiceFeedback(message, tone = 'muted') {
             voiceFeedbackEl.hidden = false;
@@ -867,237 +826,142 @@ document.addEventListener('DOMContentLoaded', () => {
             voiceFeedbackEl.className = 'small mt-1 text-' + (tone === 'error' ? 'danger' : tone === 'success' ? 'success' : 'secondary');
         }
 
-        // Pausa el reconocimiento mientras el asistente habla, para que el
-        // micrófono no se escuche a sí mismo (eso generaba comandos falsos
-        // y errores por tener grabación y reproducción de audio a la vez).
-        function speak(text) {
-            if (!window.speechSynthesis) return;
+        function setRecordingUi(isRecording) {
+            recording = isRecording;
+            voiceBtn.classList.toggle('listening', isRecording);
+            voiceIcon.className = isRecording ? 'bi bi-stop-fill' : 'bi bi-mic';
+        }
 
-            const resumeListening = () => {
-                isSpeaking = false;
-                if (listening) {
-                    try { recognition.start(); } catch (e) { /* ya estaba iniciado */ }
-                }
-            };
+        function setProcessingUi(isProcessing) {
+            voiceBtn.disabled = isProcessing;
+            voiceBtn.classList.toggle('processing', isProcessing);
+        }
+
+        async function startRecording() {
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (e) {
+                showVoiceFeedback('Permiso de micrófono denegado.', 'error');
+                return;
+            }
+
+            const preferredType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+                .find((type) => MediaRecorder.isTypeSupported?.(type));
 
             try {
-                isSpeaking = true;
-                if (listening) {
-                    try { recognition.stop(); } catch (e) { /* ya estaba detenido */ }
-                }
-
-                const utter = new SpeechSynthesisUtterance(text);
-                utter.lang = 'es-ES';
-                utter.onend = resumeListening;
-                utter.onerror = resumeListening;
-                window.speechSynthesis.speak(utter);
+                mediaRecorder = preferredType ? new MediaRecorder(stream, { mimeType: preferredType }) : new MediaRecorder(stream);
             } catch (e) {
-                resumeListening();
+                stream.getTracks().forEach((track) => track.stop());
+                showVoiceFeedback('No se pudo iniciar la grabación en este navegador.', 'error');
+                return;
+            }
+
+            audioChunks = [];
+            mediaRecorder.addEventListener('dataavailable', (e) => {
+                if (e.data && e.data.size > 0) audioChunks.push(e.data);
+            });
+
+            mediaRecorder.addEventListener('stop', () => {
+                stream.getTracks().forEach((track) => track.stop());
+                clearTimeout(autoStopTimer);
+                setRecordingUi(false);
+
+                const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                if (blob.size === 0) {
+                    showVoiceFeedback('No se grabó audio. Intentá de nuevo.', 'error');
+                    return;
+                }
+                sendVoiceCommand(blob);
+            });
+
+            mediaRecorder.start();
+            setRecordingUi(true);
+            showVoiceFeedback('Escuchando... decí, por ejemplo, "agregá dos kilos de arroz". Tocá el micrófono de nuevo para terminar.', 'muted');
+            autoStopTimer = setTimeout(stopRecording, MAX_RECORDING_MS);
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
             }
         }
 
-        function extractQuantity(text) {
-            const digitMatch = text.match(/^(\d+)\s+(.*)$/);
-            if (digitMatch) {
-                return { quantity: parseInt(digitMatch[1], 10), rest: digitMatch[2] };
+        async function sendVoiceCommand(blob) {
+            setProcessingUi(true);
+            showVoiceFeedback('Procesando comando de voz...', 'muted');
+
+            const formData = new FormData();
+            formData.append('audio', blob, 'comando.webm');
+
+            let result;
+            try {
+                const res = await fetch(`${BASE_URL}/api/procesar_comando_voz.php`, { method: 'POST', body: formData });
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    throw new Error('Tu sesión pudo haber expirado. Recargá la página e iniciá sesión de nuevo.');
+                }
+                result = await res.json();
+            } catch (e) {
+                setProcessingUi(false);
+                showVoiceFeedback(e.message || 'No se pudo procesar el comando de voz.', 'error');
+                return;
             }
-            const words = text.split(/\s+/);
-            if (words.length > 1 && numberWords[words[0]] !== undefined) {
-                return { quantity: numberWords[words[0]], rest: words.slice(1).join(' ') };
+
+            setProcessingUi(false);
+
+            if (!result.ok) {
+                showVoiceFeedback(result.error || 'No se pudo procesar el comando de voz.', 'error');
+                return;
             }
-            return { quantity: 1, rest: text };
+
+            applyVoiceResult(result);
         }
 
-        function findBestProductMatch(term) {
-            const cleaned = term.replace(/^(el|la|los|las|de|un|una|unos|unas)\s+/, '').trim();
-            if (!cleaned) return null;
+        function applyVoiceResult(result) {
+            const addedLines = [];
+            const issueLines = [...(result.warnings || [])];
 
-            let best = null;
-            let bestScore = 0;
-            products.forEach((product) => {
-                const name = normalizeVoiceText(product.name);
-                const sku = normalizeVoiceText(product.sku || '');
-                let score = 0;
-                if (sku && sku === cleaned) {
-                    score = 100;
-                } else if (name === cleaned) {
-                    score = 90;
-                } else if (name.includes(cleaned)) {
-                    score = 70;
+            (result.items || []).forEach((item) => {
+                const product = findProduct(item.product_id);
+                if (!product) return;
+                const added = addToCart(item.product_id, item.quantity);
+                if (added > 0) {
+                    addedLines.push(`${product.name} x${formatQty(added)}`);
+                    if (added < item.quantity) {
+                        issueLines.push(`Stock limitado: solo se agregaron ${formatQty(added)} de ${product.name}.`);
+                    }
                 } else {
-                    const termWords = cleaned.split(/\s+/);
-                    const nameWords = name.split(/\s+/);
-                    const overlap = termWords.filter((w) => nameWords.includes(w)).length;
-                    if (overlap > 0) score = 40 + overlap * 5;
-                }
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = product;
+                    issueLines.push(`${product.name} no tiene stock disponible.`);
                 }
             });
-            return bestScore >= 40 ? best : null;
-        }
 
-        function voiceCartSummary() {
-            const lines = [];
-            let total = 0;
-            cart.forEach(({ product, quantity, unitPrice }) => {
-                total += unitPrice * quantity;
-                lines.push(`${product.name} x${quantity}`);
-            });
-            return { lines, total };
-        }
-
-        function stopListening() {
-            listening = false;
-            isSpeaking = false;
-            window.speechSynthesis?.cancel();
-            try { recognition.stop(); } catch (e) { /* ya estaba detenido */ }
-            voiceBtn.classList.remove('listening');
-            voiceIcon.className = 'bi bi-mic';
-        }
-
-        function openVoiceConfirm() {
-            if (cart.size === 0) {
-                showVoiceFeedback('El carrito está vacío. Agregá productos antes de confirmar.', 'error');
-                speak('El carrito está vacío.');
-                return;
+            if (result.discount) {
+                discount.enabled = true;
+                discount.type = result.discount.type === 'fixed' ? 'fixed' : 'percent';
+                discount.value = Math.max(0, Number(result.discount.value) || 0);
+                discountToggle.checked = true;
+                discountInputGroup.hidden = false;
+                discountTypeSelect.value = discount.type;
+                discountValueInput.value = discount.value;
             }
-            const { lines, total } = voiceCartSummary();
-            voiceConfirmSummaryEl.innerHTML = lines.map((line) => `<div>${escapeHtml(line)}</div>`).join('');
-            voiceConfirmTotalEl.textContent = formatMoney(total);
-            awaitingConfirmation = true;
-            voiceConfirmModal.show();
-            speak(`Vas a registrar una venta por ${formatMoney(total)}. Decí confirmar para registrarla, o cancelar.`);
-        }
 
-        function finalizeVoiceSale() {
-            awaitingConfirmation = false;
-            voiceConfirmModal.hide();
-            stopListening();
-            saleForm.requestSubmit();
-        }
+            renderCart();
 
-        function cancelVoiceConfirm() {
-            awaitingConfirmation = false;
-            voiceConfirmModal.hide();
-            showVoiceFeedback('Confirmación cancelada.', 'muted');
-        }
-
-        function handleAddCommand(rest) {
-            const { quantity, rest: term } = extractQuantity(normalizeVoiceText(rest));
-            const product = findBestProductMatch(term);
-            if (!product) {
-                showVoiceFeedback(`No encontré ningún producto que coincida con "${term}".`, 'error');
-                speak(`No encontré ningún producto que coincida con ${term}.`);
-                return;
-            }
-            const added = addToCart(product.id, quantity);
-            if (added <= 0) {
-                showVoiceFeedback(`${product.name} no tiene stock disponible.`, 'error');
-                speak(`${product.name} no tiene stock disponible.`);
-            } else if (added < quantity) {
-                showVoiceFeedback(`Solo había stock para agregar ${added} de ${product.name}.`, 'error');
-                speak(`Solo agregué ${added} de ${product.name} por falta de stock.`);
+            if (addedLines.length) {
+                const tone = issueLines.length ? 'muted' : 'success';
+                showVoiceFeedback(['Agregado: ' + addedLines.join(', ') + '.', ...issueLines].join(' '), tone);
             } else {
-                showVoiceFeedback(`Agregado: ${product.name} x${added}.`, 'success');
-                speak(`Agregué ${added} de ${product.name}.`);
+                showVoiceFeedback(issueLines.join(' ') || 'No se detectó ningún producto en el audio.', 'error');
             }
         }
-
-        function handleSearchCommand(term) {
-            searchInput.value = term;
-            renderProducts();
-            showVoiceFeedback(`Mostrando resultados para "${term}".`, 'muted');
-        }
-
-        function handleVoiceCommand(rawText) {
-            const text = normalizeVoiceText(rawText);
-            if (!text) return;
-
-            if (awaitingConfirmation) {
-                if (/^(si|sí|confirmar|confirmar venta|registrar venta)\b/.test(text)) {
-                    finalizeVoiceSale();
-                } else if (/^(no|cancelar)\b/.test(text)) {
-                    cancelVoiceConfirm();
-                } else {
-                    showVoiceFeedback('Decí "confirmar" para registrar la venta o "cancelar" para volver.', 'muted');
-                }
-                return;
-            }
-
-            if (/^(confirmar( venta)?|registrar venta|finalizar venta)\b/.test(text)) {
-                openVoiceConfirm();
-                return;
-            }
-
-            const addMatch = text.match(/^(agregar|anadir|agrega|pon|anade)\s+(.+)$/);
-            if (addMatch) {
-                handleAddCommand(addMatch[2]);
-                return;
-            }
-
-            const searchMatch = text.match(/^(buscar|busca)\s+(.+)$/);
-            if (searchMatch) {
-                handleSearchCommand(searchMatch[2]);
-                return;
-            }
-
-            handleAddCommand(text);
-        }
-
-        recognition.addEventListener('start', () => {
-            listening = true;
-            voiceBtn.classList.add('listening');
-            voiceIcon.className = 'bi bi-mic-fill';
-            showVoiceFeedback('Escuchando... decí, por ejemplo, "agregar dos arroz".', 'muted');
-        });
-
-        recognition.addEventListener('result', (event) => {
-            const result = event.results[event.results.length - 1];
-            if (!result.isFinal) return;
-            handleVoiceCommand(result[0].transcript);
-        });
-
-        recognition.addEventListener('error', (event) => {
-            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                listening = false;
-                voiceBtn.classList.remove('listening');
-                voiceIcon.className = 'bi bi-mic';
-                showVoiceFeedback('Permiso de micrófono denegado.', 'error');
-            }
-            // Otros errores (silencio, red) se recuperan solos con el reinicio en "end".
-        });
-
-        recognition.addEventListener('end', () => {
-            if (listening && !isSpeaking) {
-                // Si isSpeaking es true, es speak() quien reinicia el
-                // reconocimiento cuando termine de hablar (evita el
-                // reinicio duplicado y que se escuche a sí mismo).
-                try { recognition.start(); } catch (e) { /* ya estaba iniciado */ }
-            } else if (!listening) {
-                voiceBtn.classList.remove('listening');
-                voiceIcon.className = 'bi bi-mic';
-            }
-        });
 
         voiceBtn.addEventListener('click', () => {
-            if (listening) {
-                stopListening();
-                showVoiceFeedback('Comando de voz detenido.', 'muted');
+            if (recording) {
+                stopRecording();
             } else {
-                try {
-                    recognition.start();
-                } catch (e) {
-                    // el reconocimiento ya estaba en marcha
-                }
+                startRecording();
             }
-        });
-
-        voiceConfirmBtn.addEventListener('click', finalizeVoiceSale);
-        voiceCancelBtn.addEventListener('click', cancelVoiceConfirm);
-        voiceConfirmModalEl.addEventListener('hidden.bs.modal', () => {
-            awaitingConfirmation = false;
         });
     }
 });

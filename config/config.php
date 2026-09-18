@@ -85,6 +85,15 @@ if (APP_ENV === 'local') {
 
 define('DB_CHARSET', 'utf8mb4');
 
+// Comando de voz por IA (public/vender.php): sin API key configurada, el
+// endpoint api/procesar_comando_voz.php responde con un error claro en vez
+// de fallar a medias. La clave nunca tiene un valor por defecto: se
+// configura en config/config.local.php (gitignored) o como variable de
+// entorno real.
+define('AI_VOICE_PROVIDER', app_config($overrides, 'AI_VOICE_PROVIDER', 'gemini'));
+define('AI_VOICE_API_KEY', app_config($overrides, 'AI_VOICE_API_KEY', ''));
+define('AI_VOICE_MODEL', app_config($overrides, 'AI_VOICE_MODEL', 'gemini-2.0-flash'));
+
 error_reporting(E_ALL);
 ini_set('display_errors', APP_ENV === 'local' ? '1' : '0');
 ini_set('log_errors', '1');
