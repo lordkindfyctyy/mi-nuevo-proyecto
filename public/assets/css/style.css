@@ -66,6 +66,17 @@
     flex-shrink: 0;
 }
 
+.icon-btn-sm {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .85rem;
+    flex-shrink: 0;
+}
+
 * {
     box-sizing: border-box;
 }

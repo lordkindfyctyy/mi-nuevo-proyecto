@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Sale.php';
+require_once __DIR__ . '/../includes/receipt_helpers.php';
 requireLogin();
 require_once __DIR__ . '/../includes/header.php';
 
@@ -89,7 +90,12 @@ $totalVendido = array_sum(array_map(
                             <?= $sale['status'] === 'completed' ? 'Completada' : 'Cancelada' ?>
                         </span>
                     </td>
-                    <td class="text-end text-secondary"><i class="bi bi-chevron-right"></i></td>
+                    <td class="text-end text-nowrap">
+                        <a href="<?= htmlspecialchars(receipt_public_url(Sale::getOrCreatePublicToken((int) $sale['id']))) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rounded-circle icon-btn-sm" title="Ver remito digital" aria-label="Ver remito digital">
+                            <i class="bi bi-globe2"></i>
+                        </a>
+                        <i class="bi bi-chevron-right text-secondary ms-1"></i>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

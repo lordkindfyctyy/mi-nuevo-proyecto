@@ -56,6 +56,8 @@ $isCancelled = $sale['status'] !== 'completed';
             min-height: 100vh;
         }
         .receipt-wrap { max-width: 480px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+        .receipt-toolbar { display: flex; justify-content: center; margin-bottom: 1rem; }
+        .receipt-toolbar .btn { font-weight: 600; font-size: .85rem; padding: .5rem 1.25rem; }
         .receipt-card {
             background: #fff; border-radius: 1.25rem; overflow: hidden;
             box-shadow: 0 1.5rem 3rem rgba(0, 178, 143, .16), 0 .25rem .75rem rgba(0, 0, 0, .06);
@@ -110,7 +112,12 @@ $isCancelled = $sale['status'] !== 'completed';
 </head>
 <body>
     <div class="receipt-wrap">
-        <div class="receipt-card">
+        <div class="receipt-toolbar">
+            <button type="button" id="download-receipt-btn" class="btn btn-light shadow-sm rounded-pill">
+                <i class="bi bi-camera"></i> Descargar imagen
+            </button>
+        </div>
+        <div class="receipt-card" id="receipt-capture-target">
             <div class="receipt-header">
                 <div class="receipt-brand">
                     <span class="receipt-brand-mark" aria-hidden="true">6&amp;7</span>
@@ -207,5 +214,43 @@ $isCancelled = $sale['status'] !== 'completed';
         </div>
         <p class="receipt-outer-note">Comprobante digital generado con SixSeven (6&amp;7)</p>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('download-receipt-btn');
+        const target = document.getElementById('receipt-capture-target');
+        if (!btn || !target) return;
+
+        const originalHtml = btn.innerHTML;
+
+        btn.addEventListener('click', async () => {
+            if (typeof html2canvas === 'undefined') {
+                alert('No se pudo cargar la herramienta de captura. Revisá tu conexión e intentá de nuevo.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generando...';
+
+            try {
+                const canvas = await html2canvas(target, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                });
+                const link = document.createElement('a');
+                link.download = 'remito-<?= (int) $sale['id'] ?>.png';
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+            } catch (e) {
+                alert('No se pudo generar la imagen. Probá de nuevo.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    });
+    </script>
 </body>
 </html>
