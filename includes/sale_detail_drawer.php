@@ -31,19 +31,33 @@ $saleDetailRedirectPath = htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/ventas.p
             </div>
         </div>
     </div>
-    <div class="sale-detail-actions border-top p-3 d-flex justify-content-around" id="sd-actions" hidden>
-        <button type="button" class="btn btn-outline-secondary rounded-circle sd-action-btn" id="sd-print-btn" title="Imprimir" aria-label="Imprimir">
-            <i class="bi bi-printer"></i>
-        </button>
-        <a href="#" target="_blank" rel="noopener" class="btn btn-outline-success rounded-circle sd-action-btn" id="sd-whatsapp-btn" title="Comprobante por WhatsApp" aria-label="Comprobante por WhatsApp">
-            <i class="bi bi-whatsapp"></i>
-        </a>
-        <button type="button" class="btn btn-outline-primary rounded-circle sd-action-btn" id="sd-edit-btn" title="Editar" aria-label="Editar">
-            <i class="bi bi-pencil"></i>
-        </button>
-        <button type="button" class="btn btn-outline-danger rounded-circle sd-action-btn" id="sd-delete-btn" title="Eliminar" aria-label="Eliminar">
-            <i class="bi bi-trash"></i>
-        </button>
+    <div class="sale-detail-actions border-top p-3" id="sd-actions" hidden>
+        <div class="d-flex flex-wrap justify-content-center gap-2 mb-2">
+            <button type="button" class="btn btn-outline-secondary rounded-circle sd-action-btn" id="sd-print-btn" title="Imprimir" aria-label="Imprimir">
+                <i class="bi bi-printer"></i>
+            </button>
+            <a href="#" target="_blank" rel="noopener" class="btn btn-outline-success rounded-circle sd-action-btn" id="sd-whatsapp-btn" title="Comprobante por WhatsApp" aria-label="Comprobante por WhatsApp">
+                <i class="bi bi-whatsapp"></i>
+            </a>
+            <button type="button" class="btn btn-outline-secondary rounded-circle sd-action-btn" id="sd-email-btn" title="Enviar por email" aria-label="Enviar por email">
+                <i class="bi bi-envelope"></i>
+            </button>
+            <button type="button" class="btn btn-outline-secondary rounded-circle sd-action-btn" id="sd-share-btn" title="Compartir" aria-label="Compartir">
+                <i class="bi bi-share"></i>
+            </button>
+            <button type="button" class="btn btn-outline-primary rounded-circle sd-action-btn" id="sd-edit-btn" title="Editar" aria-label="Editar">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger rounded-circle sd-action-btn" id="sd-delete-btn" title="Eliminar" aria-label="Eliminar">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="input-group input-group-sm" id="sd-email-form" hidden>
+            <input type="email" class="form-control" id="sd-email-input" placeholder="Email del cliente" autocomplete="off">
+            <button class="btn btn-primary" type="button" id="sd-email-send-btn">Enviar</button>
+            <button class="btn btn-outline-secondary" type="button" id="sd-email-cancel-btn" aria-label="Cancelar"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="small text-secondary text-center mt-1" id="sd-share-hint" hidden></div>
     </div>
 </div>
 
@@ -122,6 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const discountAmountEl = document.getElementById('sd-discount-amount');
     const printBtn = document.getElementById('sd-print-btn');
     const whatsappBtn = document.getElementById('sd-whatsapp-btn');
+    const emailBtn = document.getElementById('sd-email-btn');
+    const emailForm = document.getElementById('sd-email-form');
+    const emailInput = document.getElementById('sd-email-input');
+    const emailSendBtn = document.getElementById('sd-email-send-btn');
+    const emailCancelBtn = document.getElementById('sd-email-cancel-btn');
+    const shareBtn = document.getElementById('sd-share-btn');
+    const shareHintEl = document.getElementById('sd-share-hint');
     const editBtn = document.getElementById('sd-edit-btn');
     const deleteBtn = document.getElementById('sd-delete-btn');
     const printReceiptEl = document.getElementById('print-receipt');
@@ -140,6 +161,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const div = document.createElement('div');
         div.textContent = str ?? '';
         return div.innerHTML;
+    }
+
+    // Resumen en texto plano (para el body de un mailto: y para el texto de
+    // Web Share, ninguno de los dos admite HTML) con el detalle de la venta
+    // y el link al remito con el diseño completo.
+    function buildShareSummary(data) {
+        const sale = data.sale;
+        const dateLabel = new Date(sale.created_at.replace(' ', 'T')).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+        const lines = [
+            `Hola, te compartimos el comprobante de tu compra en ${data.tenant.name}.`,
+            '',
+            `Venta #${sale.id} · ${dateLabel}`,
+            'Detalle de productos:',
+            ...data.items.map((item) => `- ${item.name} x${formatQty(item.quantity)} = ${formatMoney(item.subtotal)}`),
+            '',
+            `Total: ${formatMoney(sale.total)}`,
+            `Medio de pago: ${sale.payment_label}`,
+            '',
+            `Ver el remito completo: ${sale.receipt_url}`,
+            '',
+            '¡Gracias por tu compra!',
+        ];
+        return lines.join('\n');
     }
 
     function renderDetail(data) {
@@ -232,6 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         errorEl.hidden = true;
         contentEl.hidden = true;
         actionsEl.hidden = true;
+        emailForm.hidden = true;
+        shareHintEl.hidden = true;
         drawer.show();
 
         try {
@@ -271,6 +317,63 @@ document.addEventListener('DOMContentLoaded', () => {
         const saleId = currentDetail.sale.id;
         drawer.hide();
         setTimeout(() => window.openSaleEditModal(saleId), 200);
+    });
+
+    emailBtn.addEventListener('click', () => {
+        emailForm.hidden = false;
+        emailInput.value = '';
+        emailInput.focus();
+    });
+
+    emailCancelBtn.addEventListener('click', () => {
+        emailForm.hidden = true;
+    });
+
+    emailSendBtn.addEventListener('click', () => {
+        const email = emailInput.value.trim();
+        if (!email || !email.includes('@')) {
+            emailInput.focus();
+            return;
+        }
+        if (!currentDetail) return;
+
+        const sale = currentDetail.sale;
+        const subject = `Comprobante de tu compra en ${currentDetail.tenant.name} · Venta #${sale.id}`;
+        const body = buildShareSummary(currentDetail);
+        // mailto: no admite HTML en el body (es solo texto plano); por eso
+        // el cuerpo es un resumen y el diseño completo vive en el link al
+        // remito. Abre el cliente de correo del vendedor, no envía nada
+        // desde el servidor (esta app no tiene un servicio de email configurado).
+        window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        emailForm.hidden = true;
+    });
+
+    shareBtn.addEventListener('click', async () => {
+        if (!currentDetail) return;
+        const sale = currentDetail.sale;
+        shareHintEl.hidden = true;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `Comprobante de venta #${sale.id}`,
+                    text: buildShareSummary(currentDetail),
+                    url: sale.receipt_url,
+                });
+            } catch (e) {
+                // El usuario cerró la hoja de compartir sin elegir nada: no es un error.
+            }
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(sale.receipt_url);
+            shareHintEl.textContent = 'Tu navegador no soporta compartir nativo: copiamos el link del remito al portapapeles.';
+            shareHintEl.hidden = false;
+        } catch (e) {
+            shareHintEl.textContent = 'Tu navegador no soporta compartir nativo. Copiá el link manualmente: ' + sale.receipt_url;
+            shareHintEl.hidden = false;
+        }
     });
 
     deleteBtn.addEventListener('click', async () => {
