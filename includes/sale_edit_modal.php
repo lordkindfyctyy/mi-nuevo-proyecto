@@ -197,6 +197,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => openForSale(btn.dataset.saleId));
     });
 
+    // Expuesto para que el drawer de detalle de venta (sale_detail_drawer.php)
+    // pueda abrir esta misma edición desde su botón "Editar", sin duplicar
+    // la lógica de carga/guardado.
+    window.openSaleEditModal = openForSale;
+
     saveBtn.addEventListener('click', () => {
         if (!currentSaleId || items.length === 0) return;
 

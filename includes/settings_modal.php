@@ -35,7 +35,11 @@ $settingsRedirectPath = parse_url($_SERVER['REQUEST_URI'] ?? '/vender.php', PHP_
                     <div class="mb-3">
                         <label for="settings-tenant-address" class="form-label">Dirección</label>
                         <input type="text" id="settings-tenant-address" name="tenant_address" class="form-control" value="<?= htmlspecialchars($settingsTenant['address'] ?? '') ?>">
-                        <div class="form-text">Aparece en el remito web que se comparte con los clientes.</div>
+                        <div class="form-text">Aparece en el remito web y en el comprobante impreso.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="settings-tenant-tax-id" class="form-label">Identificación fiscal (CUIT, opcional)</label>
+                        <input type="text" id="settings-tenant-tax-id" name="tenant_tax_id" class="form-control" value="<?= htmlspecialchars($settingsTenant['tax_id'] ?? '') ?>">
                     </div>
                     <div class="mb-0">
                         <label for="settings-user-name" class="form-label">Mi nombre de usuario</label>

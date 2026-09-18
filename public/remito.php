@@ -88,6 +88,7 @@ $isCancelled = $sale['status'] !== 'completed';
                 <div class="receipt-tenant-meta">
                     <?php if (!empty($sale['tenant_address'])): ?><?= htmlspecialchars($sale['tenant_address']) ?><br><?php endif; ?>
                     <?php if (!empty($sale['tenant_phone'])): ?><?= htmlspecialchars($sale['tenant_phone']) ?><?php endif; ?>
+                    <?php if (!empty($sale['tenant_tax_id'])): ?><br>CUIT: <?= htmlspecialchars($sale['tenant_tax_id']) ?><?php endif; ?>
                 </div>
                 <?php if ($isCancelled): ?>
                     <span class="badge bg-secondary-subtle text-secondary-emphasis receipt-cancelled-badge">Venta anulada</span>

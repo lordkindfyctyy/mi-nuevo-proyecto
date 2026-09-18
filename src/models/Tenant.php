@@ -73,7 +73,7 @@ class Tenant
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'email', 'phone', 'address', 'whatsapp_phone', 'public_token', 'status'] as $field) {
+        foreach (['name', 'email', 'phone', 'address', 'tax_id', 'whatsapp_phone', 'public_token', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];

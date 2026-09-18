@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     email VARCHAR(150) NOT NULL UNIQUE,
     phone VARCHAR(30) NULL,
     address VARCHAR(255) NULL,
+    tax_id VARCHAR(40) NULL,
     whatsapp_phone VARCHAR(20) NULL,
     public_token VARCHAR(40) NULL UNIQUE,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',

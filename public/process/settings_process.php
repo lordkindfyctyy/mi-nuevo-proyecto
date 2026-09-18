@@ -25,6 +25,7 @@ if (!$tenantId || !$userId) {
 $tenantName = trim($_POST['tenant_name'] ?? '');
 $tenantPhone = trim($_POST['tenant_phone'] ?? '');
 $tenantAddress = trim($_POST['tenant_address'] ?? '');
+$tenantTaxId = trim($_POST['tenant_tax_id'] ?? '');
 $userName = trim($_POST['user_name'] ?? '');
 
 if ($tenantName === '' || $userName === '') {
@@ -37,6 +38,7 @@ try {
         'name' => $tenantName,
         'phone' => $tenantPhone !== '' ? $tenantPhone : null,
         'address' => $tenantAddress !== '' ? $tenantAddress : null,
+        'tax_id' => $tenantTaxId !== '' ? $tenantTaxId : null,
     ]);
     User::update($userId, ['name' => $userName]);
 

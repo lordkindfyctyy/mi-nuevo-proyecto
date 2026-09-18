@@ -122,7 +122,8 @@ class Sale
     public static function findByPublicToken(string $token): ?array
     {
         $stmt = self::db()->prepare(
-            'SELECT s.*, u.name AS seller_name, t.name AS tenant_name, t.address AS tenant_address, t.phone AS tenant_phone
+            'SELECT s.*, u.name AS seller_name, t.name AS tenant_name, t.address AS tenant_address,
+                    t.phone AS tenant_phone, t.tax_id AS tenant_tax_id
              FROM sales s
              JOIN users u ON u.id = s.user_id
              JOIN tenants t ON t.id = s.tenant_id
@@ -137,7 +138,8 @@ class Sale
     public static function itemsFor(int $saleId): array
     {
         $stmt = self::db()->prepare(
-            'SELECT si.*, p.name AS product_name
+            'SELECT si.*, p.name AS product_name, p.cost AS product_cost, p.sale_unit AS product_sale_unit,
+                    p.imagen AS product_imagen, p.image_url AS product_image_url
              FROM sale_items si
              JOIN products p ON p.id = si.product_id
              WHERE si.sale_id = :sale_id'
