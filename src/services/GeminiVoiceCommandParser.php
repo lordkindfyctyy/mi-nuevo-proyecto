@@ -15,6 +15,13 @@ class GeminiVoiceCommandParser
 {
     private const ENDPOINT_TEMPLATE = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s';
 
+    // Gemini devuelve estos códigos cuando está momentáneamente saturado
+    // (no son errores de la clave, la cuota ni el request); vale la pena
+    // reintentar un par de veces antes de mostrarle el error al vendedor.
+    private const RETRYABLE_HTTP_CODES = [429, 500, 502, 503, 504];
+    private const MAX_ATTEMPTS = 3;
+    private const RETRY_DELAY_SECONDS = 2;
+
     /**
      * @param array<int, array{id:int, sku:string, nombre:string, precio:float, unidad:string}> $catalog
      * @return array{items?: array<int, array<string, mixed>>, descuento?: array<string, mixed>|null, transcripcion?: string}
@@ -43,29 +50,44 @@ class GeminiVoiceCommandParser
         ];
 
         $url = sprintf(self::ENDPOINT_TEMPLATE, AI_VOICE_MODEL, AI_VOICE_API_KEY);
+        $jsonPayload = json_encode($payload);
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS => json_encode($payload),
-            CURLOPT_TIMEOUT => 30,
-        ]);
-        $responseBody = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+        $lastMessage = 'No se pudo contactar al servicio de IA.';
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_POSTFIELDS => $jsonPayload,
+                CURLOPT_TIMEOUT => 30,
+            ]);
+            $responseBody = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
 
-        if ($responseBody === false) {
-            throw new RuntimeException('No se pudo contactar al servicio de IA (' . $curlError . ').');
-        }
+            if ($responseBody === false) {
+                $lastMessage = 'No se pudo contactar al servicio de IA (' . $curlError . ').';
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    sleep(self::RETRY_DELAY_SECONDS);
+                    continue;
+                }
+                throw new RuntimeException($lastMessage);
+            }
 
-        $decoded = json_decode($responseBody, true);
+            $decoded = json_decode($responseBody, true);
 
-        if ($httpCode >= 400) {
-            $message = $decoded['error']['message'] ?? ('Error HTTP ' . $httpCode . ' del servicio de IA.');
-            throw new RuntimeException($message);
+            if ($httpCode >= 400) {
+                $lastMessage = $decoded['error']['message'] ?? ('Error HTTP ' . $httpCode . ' del servicio de IA.');
+                if (in_array($httpCode, self::RETRYABLE_HTTP_CODES, true) && $attempt < self::MAX_ATTEMPTS) {
+                    sleep(self::RETRY_DELAY_SECONDS);
+                    continue;
+                }
+                throw new RuntimeException($lastMessage);
+            }
+
+            break;
         }
 
         $text = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
