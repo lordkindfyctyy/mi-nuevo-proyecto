@@ -282,6 +282,41 @@ function pos_render_nav(array $items, string $currentPage): void
         </div>
     </div>
 
+    <div class="modal fade" id="confirmSaleModal" tabindex="-1" aria-labelledby="confirmSaleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmSaleModalLabel">Confirmar venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center fw-bold fs-5 mb-3">
+                        <span>Total a cobrar</span>
+                        <span id="confirm-sale-total">$0.00</span>
+                    </div>
+                    <label class="form-label small text-secondary mb-2">Medio de pago</label>
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="Medio de pago" id="payment-method-group">
+                        <button type="button" class="btn btn-outline-primary payment-method-btn active" data-value="cash">Efectivo</button>
+                        <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="card">Tarjeta</button>
+                        <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="transfer">Transferencia</button>
+                        <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="qr">QR</button>
+                    </div>
+                    <div id="cash-received-block">
+                        <label for="cash-received-input" class="form-label small text-secondary">¿Con cuánto paga el cliente? (opcional)</label>
+                        <input type="number" step="any" min="0" class="form-control" id="cash-received-input" placeholder="Ej: 10000">
+                        <div class="mt-2 small" id="change-due-line" hidden>
+                            <span id="change-due-label"></span> <span id="change-due-amount" class="fw-semibold"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirm-sale-btn">Confirmar venta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php require_once __DIR__ . '/../includes/settings_modal.php'; ?>
 
     <main class="pos-products">
@@ -349,14 +384,7 @@ function pos_render_nav(array $items, string $currentPage): void
                     </select>
                     <a href="<?= BASE_URL ?>/clientes.php" target="_blank" class="form-text text-decoration-none">¿No está en la lista? Agrégalo en Clientes.</a>
                 </div>
-                <div class="mb-3">
-                    <select id="payment_method" name="payment_method" class="form-select form-select-sm">
-                        <option value="cash">Efectivo</option>
-                        <option value="card">Tarjeta</option>
-                        <option value="transfer">Transferencia</option>
-                        <option value="other">Otro</option>
-                    </select>
-                </div>
+                <input type="hidden" id="payment_method" name="payment_method" value="cash">
                 <div class="pos-discount-block mb-2">
                     <div class="d-flex align-items-center justify-content-between">
                         <div class="form-check form-switch mb-0">
@@ -384,7 +412,7 @@ function pos_render_nav(array $items, string $currentPage): void
                     <span>Total</span>
                     <span id="grand-total">$0.00</span>
                 </div>
-                <button type="submit" class="btn btn-primary pos-continue-btn" id="submit-btn" disabled>
+                <button type="button" class="btn btn-primary pos-continue-btn" id="submit-btn" disabled data-bs-toggle="modal" data-bs-target="#confirmSaleModal">
                     Continuar · <span id="submit-total">$0.00</span>
                 </button>
                 <input type="hidden" name="discount_enabled" id="discount-enabled-input" value="0">
@@ -430,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cart = new Map();
     let activeCategory = 'all';
     const discount = { enabled: false, type: 'percent', value: 10 };
+    let currentGrandTotal = 0;
 
     const searchInput = document.getElementById('product-search');
     if (!searchInput) return;
@@ -490,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         grandTotalEl.textContent = formatMoney(total);
         submitTotalEl.textContent = formatMoney(total);
+        currentGrandTotal = total;
 
         return total;
     }
@@ -798,6 +828,65 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = parseFloat(discountValueInput.value);
         discount.value = isNaN(value) ? 0 : Math.max(0, value);
         renderCart();
+    });
+
+    // --- Confirmación de venta: medio de pago + vuelto ---
+    const saleForm = document.getElementById('sale-form');
+    const paymentMethodInput = document.getElementById('payment_method');
+    const confirmSaleModalEl = document.getElementById('confirmSaleModal');
+    const confirmSaleTotalEl = document.getElementById('confirm-sale-total');
+    const paymentMethodButtons = Array.from(document.querySelectorAll('.payment-method-btn'));
+    const cashReceivedBlock = document.getElementById('cash-received-block');
+    const cashReceivedInput = document.getElementById('cash-received-input');
+    const changeDueLine = document.getElementById('change-due-line');
+    const changeDueLabel = document.getElementById('change-due-label');
+    const changeDueAmount = document.getElementById('change-due-amount');
+    const confirmSaleBtn = document.getElementById('confirm-sale-btn');
+
+    function updateChangeDue() {
+        const received = parseFloat(cashReceivedInput.value);
+        if (isNaN(received) || received <= 0) {
+            changeDueLine.hidden = true;
+            return;
+        }
+        const diff = received - currentGrandTotal;
+        changeDueLine.hidden = false;
+        if (diff >= 0) {
+            changeDueLabel.textContent = 'Vuelto:';
+            changeDueAmount.textContent = formatMoney(diff);
+            changeDueAmount.className = 'fw-semibold text-success';
+        } else {
+            changeDueLabel.textContent = 'Falta:';
+            changeDueAmount.textContent = formatMoney(-diff);
+            changeDueAmount.className = 'fw-semibold text-danger';
+        }
+    }
+
+    function selectPaymentMethod(value) {
+        paymentMethodInput.value = value;
+        paymentMethodButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.value === value));
+        cashReceivedBlock.hidden = value !== 'cash';
+        if (value !== 'cash') {
+            changeDueLine.hidden = true;
+        }
+    }
+
+    paymentMethodButtons.forEach((btn) => {
+        btn.addEventListener('click', () => selectPaymentMethod(btn.dataset.value));
+    });
+
+    cashReceivedInput.addEventListener('input', updateChangeDue);
+
+    confirmSaleModalEl.addEventListener('show.bs.modal', () => {
+        confirmSaleTotalEl.textContent = formatMoney(currentGrandTotal);
+        cashReceivedInput.value = '';
+        changeDueLine.hidden = true;
+        selectPaymentMethod('cash');
+    });
+
+    confirmSaleBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(confirmSaleModalEl)?.hide();
+        saleForm.requestSubmit();
     });
 
     renderCategoryFilters();

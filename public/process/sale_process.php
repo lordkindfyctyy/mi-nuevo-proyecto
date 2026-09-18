@@ -88,7 +88,7 @@ if (($_POST['discount_enabled'] ?? '') === '1') {
     $discountAmount = round(max(0.0, min($discountAmount, $subtotal)), 2);
 }
 
-$allowedMethods = ['cash', 'card', 'transfer', 'other'];
+$allowedMethods = ['cash', 'card', 'transfer', 'qr', 'other'];
 $paymentMethod = $_POST['payment_method'] ?? 'cash';
 if (!in_array($paymentMethod, $allowedMethods, true)) {
     $paymentMethod = 'cash';

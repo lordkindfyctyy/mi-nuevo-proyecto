@@ -11,6 +11,7 @@ $paymentLabels = [
     'cash' => 'Efectivo',
     'card' => 'Tarjeta',
     'transfer' => 'Transferencia',
+    'qr' => 'QR',
     'other' => 'Otro',
 ];
 
