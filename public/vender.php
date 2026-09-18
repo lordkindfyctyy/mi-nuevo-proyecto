@@ -36,7 +36,6 @@ $currentPage = basename($_SERVER['SCRIPT_NAME']);
 $navItems = [
     ['label' => 'Compartir catálogo', 'icon' => 'bi-share', 'action' => 'share'],
     ['label' => 'Vender', 'href' => BASE_URL . '/vender.php', 'icon' => 'bi-cart3', 'match' => 'vender.php'],
-    ['label' => 'Ventas', 'href' => BASE_URL . '/ventas.php', 'icon' => 'bi-receipt', 'match' => 'ventas.php'],
     ['label' => 'Balance', 'href' => BASE_URL . '/reportes.php', 'icon' => 'bi-bar-chart-line', 'match' => 'reportes.php'],
     ['label' => 'Inventario', 'href' => BASE_URL . '/productos.php', 'icon' => 'bi-box-seam', 'match' => 'productos.php'],
     ['label' => 'Clientes', 'href' => BASE_URL . '/clientes.php', 'icon' => 'bi-people', 'match' => 'clientes.php'],
