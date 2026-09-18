@@ -63,6 +63,9 @@ require_once __DIR__ . '/tenant_context.php';
                             <?= htmlspecialchars(currentUserName() ?? '') ?>
                             <?php if (currentTenantName()): ?> · <?= htmlspecialchars(currentTenantName()) ?><?php endif; ?>
                         </span>
+                        <button type="button" class="btn btn-outline-secondary rounded-circle settings-gear-btn me-lg-2" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Ajustes" aria-label="Ajustes">
+                            <i class="bi bi-gear"></i>
+                        </button>
                         <a href="<?= BASE_URL ?>/logout.php" class="btn btn-outline-secondary rounded-pill px-4">Cerrar sesión</a>
                     <?php else: ?>
                         <a href="<?= BASE_URL ?>/login.php" class="btn btn-outline-secondary rounded-pill px-4 ms-lg-3">Iniciar sesión</a>
@@ -72,4 +75,7 @@ require_once __DIR__ . '/tenant_context.php';
             </div>
         </nav>
     </header>
+    <?php if (isLoggedIn()): ?>
+        <?php require_once __DIR__ . '/settings_modal.php'; ?>
+    <?php endif; ?>
     <main class="container py-4">

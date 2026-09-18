@@ -282,7 +282,14 @@ function pos_render_nav(array $items, string $currentPage): void
         </div>
     </div>
 
+    <?php require_once __DIR__ . '/../includes/settings_modal.php'; ?>
+
     <main class="pos-products">
+        <div class="d-flex justify-content-end mb-2">
+            <button type="button" class="btn btn-outline-secondary rounded-circle settings-gear-btn" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Ajustes" aria-label="Ajustes">
+                <i class="bi bi-gear"></i>
+            </button>
+        </div>
         <?php if ($lastSale): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong> Total: $<?= number_format((float) $lastSale['total'], 2) ?>
