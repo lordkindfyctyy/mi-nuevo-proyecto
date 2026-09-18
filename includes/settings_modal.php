@@ -32,6 +32,11 @@ $settingsRedirectPath = parse_url($_SERVER['REQUEST_URI'] ?? '/vender.php', PHP_
                         <label for="settings-tenant-phone" class="form-label">Teléfono de contacto</label>
                         <input type="text" id="settings-tenant-phone" name="tenant_phone" class="form-control" value="<?= htmlspecialchars($settingsTenant['phone'] ?? '') ?>">
                     </div>
+                    <div class="mb-3">
+                        <label for="settings-tenant-address" class="form-label">Dirección</label>
+                        <input type="text" id="settings-tenant-address" name="tenant_address" class="form-control" value="<?= htmlspecialchars($settingsTenant['address'] ?? '') ?>">
+                        <div class="form-text">Aparece en el remito web que se comparte con los clientes.</div>
+                    </div>
                     <div class="mb-0">
                         <label for="settings-user-name" class="form-label">Mi nombre de usuario</label>
                         <input type="text" id="settings-user-name" name="user_name" class="form-control" required value="<?= htmlspecialchars($settingsUser['name'] ?? '') ?>">

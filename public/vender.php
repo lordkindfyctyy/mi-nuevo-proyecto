@@ -4,6 +4,7 @@ require_once __DIR__ . '/../src/models/Product.php';
 require_once __DIR__ . '/../src/models/Sale.php';
 require_once __DIR__ . '/../src/models/Tenant.php';
 require_once __DIR__ . '/../src/models/Customer.php';
+require_once __DIR__ . '/../includes/receipt_helpers.php';
 requireLogin();
 
 $tenantId = currentTenantId();
@@ -23,12 +24,17 @@ $productsJson = json_encode(array_map(fn($p) => [
     'description' => $p['description'] ?? '',
 ], $products), JSON_UNESCAPED_UNICODE);
 
+$tenant = $tenantId ? Tenant::find($tenantId) : null;
+
 $lastSale = null;
+$lastSaleWhatsappUrl = null;
 if (isset($_GET['success'], $_GET['sale']) && $tenantId) {
     $lastSale = Sale::findForTenant((int) $_GET['sale'], $tenantId);
+    if ($lastSale) {
+        $lastSaleToken = Sale::getOrCreatePublicToken((int) $lastSale['id']);
+        $lastSaleWhatsappUrl = receipt_whatsapp_share_url($tenant['name'] ?? APP_NAME, $lastSale, receipt_public_url($lastSaleToken));
+    }
 }
-
-$tenant = $tenantId ? Tenant::find($tenantId) : null;
 $catalogUrl = $tenantId ? BASE_URL . '/catalogo.php?t=' . Tenant::getOrCreatePublicToken($tenantId) : null;
 
 $currentPage = basename($_SERVER['SCRIPT_NAME']);
@@ -326,8 +332,13 @@ function pos_render_nav(array $items, string $currentPage): void
             </button>
         </div>
         <?php if ($lastSale): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong> Total: $<?= number_format((float) $lastSale['total'], 2) ?>
+            <div class="alert alert-success alert-dismissible fade show d-flex flex-wrap align-items-center gap-2" role="alert">
+                <div class="flex-grow-1">
+                    <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong> Total: $<?= number_format((float) $lastSale['total'], 2) ?>
+                </div>
+                <a href="<?= htmlspecialchars($lastSaleWhatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-success btn-sm text-nowrap">
+                    <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
+                </a>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>

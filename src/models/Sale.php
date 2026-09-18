@@ -93,6 +93,47 @@ class Sale
         return $row ?: null;
     }
 
+    /**
+     * Returns the sale's public receipt token, generating and persisting
+     * one on first use (existing sales were created before this feature) —
+     * same pattern as Tenant::getOrCreatePublicToken().
+     */
+    public static function getOrCreatePublicToken(int $id): string
+    {
+        $sale = self::find($id);
+        if ($sale && !empty($sale['public_token'])) {
+            return $sale['public_token'];
+        }
+
+        $token = bin2hex(random_bytes(16));
+        self::db()->prepare('UPDATE sales SET public_token = :token WHERE id = :id')
+            ->execute(['token' => $token, 'id' => $id]);
+
+        return $token;
+    }
+
+    /**
+     * Looks up a sale by its public receipt token, for the no-login
+     * public/remito.php page. Joined with the seller and tenant info the
+     * receipt needs to display, since that page has no session/tenant
+     * context of its own — the unguessable token is what authorizes access,
+     * the same trust model as Tenant::findByPublicToken() for the catalog.
+     */
+    public static function findByPublicToken(string $token): ?array
+    {
+        $stmt = self::db()->prepare(
+            'SELECT s.*, u.name AS seller_name, t.name AS tenant_name, t.address AS tenant_address, t.phone AS tenant_phone
+             FROM sales s
+             JOIN users u ON u.id = s.user_id
+             JOIN tenants t ON t.id = s.tenant_id
+             WHERE s.public_token = :token'
+        );
+        $stmt->execute(['token' => $token]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
     public static function itemsFor(int $saleId): array
     {
         $stmt = self::db()->prepare(

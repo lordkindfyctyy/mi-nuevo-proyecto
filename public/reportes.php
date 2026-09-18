@@ -3,10 +3,13 @@ require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Report.php';
 require_once __DIR__ . '/../src/models/Product.php';
 require_once __DIR__ . '/../src/models/Sale.php';
+require_once __DIR__ . '/../src/models/Tenant.php';
+require_once __DIR__ . '/../includes/receipt_helpers.php';
 requireLogin();
 require_once __DIR__ . '/../includes/header.php';
 
 $tenantId = currentTenantId();
+$tenant = $tenantId ? Tenant::find($tenantId) : null;
 $period = Report::normalizePeriod($_GET['period'] ?? null);
 $range = Report::resolveRange($period, $_GET['start'] ?? null, $_GET['end'] ?? null);
 $period = $range['period'];
@@ -197,6 +200,10 @@ $paymentLabels = [
                                 </span>
                             </td>
                             <td class="text-end text-nowrap">
+                                <?php $saleWhatsappUrl = receipt_whatsapp_share_url($tenant['name'] ?? APP_NAME, $sale, receipt_public_url(Sale::getOrCreatePublicToken((int) $sale['id']))); ?>
+                                <a href="<?= htmlspecialchars($saleWhatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="Compartir por WhatsApp" aria-label="Compartir por WhatsApp">
+                                    <i class="bi bi-whatsapp"></i>
+                                </a>
                                 <?php if ($sale['status'] === 'completed'): ?>
                                     <button type="button" class="btn btn-sm btn-outline-primary sale-edit-trigger" data-sale-id="<?= (int) $sale['id'] ?>" title="Editar venta" aria-label="Editar venta">
                                         <i class="bi bi-pencil"></i>

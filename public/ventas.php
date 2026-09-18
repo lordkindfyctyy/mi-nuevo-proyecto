@@ -1,10 +1,13 @@
 <?php
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Sale.php';
+require_once __DIR__ . '/../src/models/Tenant.php';
+require_once __DIR__ . '/../includes/receipt_helpers.php';
 requireLogin();
 require_once __DIR__ . '/../includes/header.php';
 
 $tenantId = currentTenantId();
+$tenant = $tenantId ? Tenant::find($tenantId) : null;
 $sales = $tenantId ? Sale::allByTenant($tenantId) : [];
 
 $paymentLabels = [
@@ -93,6 +96,10 @@ $totalVendido = array_sum(array_map(
                         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#items-<?= (int) $sale['id'] ?>">
                             Ver detalle
                         </button>
+                        <?php $saleWhatsappUrl = receipt_whatsapp_share_url($tenant['name'] ?? APP_NAME, $sale, receipt_public_url(Sale::getOrCreatePublicToken((int) $sale['id']))); ?>
+                        <a href="<?= htmlspecialchars($saleWhatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="Compartir por WhatsApp" aria-label="Compartir por WhatsApp">
+                            <i class="bi bi-whatsapp"></i>
+                        </a>
                         <?php if ($sale['status'] === 'completed'): ?>
                             <button type="button" class="btn btn-sm btn-outline-primary sale-edit-trigger" data-sale-id="<?= (int) $sale['id'] ?>" title="Editar venta" aria-label="Editar venta">
                                 <i class="bi bi-pencil"></i>
