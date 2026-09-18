@@ -92,7 +92,7 @@ define('DB_CHARSET', 'utf8mb4');
 // entorno real.
 define('AI_VOICE_PROVIDER', app_config($overrides, 'AI_VOICE_PROVIDER', 'gemini'));
 define('AI_VOICE_API_KEY', app_config($overrides, 'AI_VOICE_API_KEY', ''));
-define('AI_VOICE_MODEL', app_config($overrides, 'AI_VOICE_MODEL', 'gemini-2.0-flash'));
+define('AI_VOICE_MODEL', app_config($overrides, 'AI_VOICE_MODEL', 'gemini-3.6-flash'));
 
 error_reporting(E_ALL);
 ini_set('display_errors', APP_ENV === 'local' ? '1' : '0');

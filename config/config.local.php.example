@@ -31,5 +31,5 @@ return [
     // Conseguí una clave gratuita en https://aistudio.google.com/apikey
     'AI_VOICE_PROVIDER' => null, // Por ahora solo 'gemini' está implementado.
     'AI_VOICE_API_KEY' => null,  // Ej: 'AIza...'
-    'AI_VOICE_MODEL' => null,    // Ej: 'gemini-2.0-flash' (valor por defecto si se deja null)
+    'AI_VOICE_MODEL' => null,    // Ej: 'gemini-3.6-flash' (valor por defecto si se deja null)
 ];
