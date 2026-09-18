@@ -71,9 +71,9 @@ $whatsappGeneralUrl = $whatsappDigits
         .catalog-body { max-width: 1100px; margin: 0 auto; padding: 1rem; }
         .catalog-brand-mark {
             display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-            width: 2.1rem; height: 2.1rem; border-radius: .6rem;
+            width: 2.52rem; height: 2.52rem; border-radius: .72rem;
             background: linear-gradient(135deg, #00b28f, #009677); color: #fff;
-            font-weight: 800; font-size: .8rem; letter-spacing: -.04em;
+            font-weight: 800; font-size: .96rem; letter-spacing: -.04em;
             box-shadow: 0 .15rem .4rem rgba(0, 178, 143, .35);
         }
         .catalog-search-row { display: flex; gap: .5rem; flex-wrap: wrap; }
