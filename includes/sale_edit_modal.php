@@ -96,6 +96,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return products.find((p) => p.id === id);
     }
 
+    // Lee cantidad/precio directamente del DOM de la fila (no del estado
+    // `items`) para poder previsualizar el subtotal mientras se tipea, sin
+    // tocar el resto de la tabla ni volver a renderizar — así el input
+    // activo nunca se destruye y no pierde el foco ni el cursor.
+    function rowSubtotalFromInputs(row) {
+        const qty = parseFloat(row.querySelector('.item-qty-input').value);
+        const price = parseFloat(row.querySelector('.item-price-input').value);
+        return (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
+    }
+
+    function recalcTotalLive() {
+        let total = 0;
+        itemsBody.querySelectorAll('tr').forEach((row) => {
+            total += rowSubtotalFromInputs(row);
+        });
+        totalEl.textContent = formatMoney(total);
+    }
+
+    function recalcRowLive(row) {
+        row.querySelector('.item-subtotal').textContent = formatMoney(rowSubtotalFromInputs(row));
+        recalcTotalLive();
+    }
+
     function renderItems() {
         itemsBody.innerHTML = '';
         let total = 0;
@@ -112,16 +135,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="text-end item-subtotal">${formatMoney(subtotal)}</td>
                 <td class="text-end"><button type="button" class="btn btn-sm btn-link text-danger p-0 item-remove-btn" aria-label="Quitar"><i class="bi bi-trash"></i></button></td>
             `;
-            row.querySelector('.item-qty-input').addEventListener('input', (e) => {
+            const qtyInput = row.querySelector('.item-qty-input');
+            const priceInput = row.querySelector('.item-price-input');
+
+            // "input" (cada tecla): solo previsualiza subtotal/total leyendo
+            // el DOM, sin re-renderizar — permite tipear varios dígitos
+            // seguidos sin que el input pierda el foco.
+            // "change" (al salir del campo): recién ahí se confirma el
+            // valor en `items` y se vuelve a renderizar. Si quedó vacío o
+            // inválido, se restaura el valor anterior en vez de ponerlo en 0,
+            // para no perder el dato por un blur accidental.
+            qtyInput.addEventListener('input', () => recalcRowLive(row));
+            qtyInput.addEventListener('change', (e) => {
                 const qty = parseFloat(e.target.value);
-                items[index].quantity = isNaN(qty) ? 0 : qty;
+                if (!isNaN(qty) && qty >= 0) {
+                    items[index].quantity = qty;
+                }
                 renderItems();
             });
-            row.querySelector('.item-price-input').addEventListener('input', (e) => {
+            qtyInput.addEventListener('focus', () => qtyInput.select());
+
+            priceInput.addEventListener('input', () => recalcRowLive(row));
+            priceInput.addEventListener('change', (e) => {
                 const price = parseFloat(e.target.value);
-                items[index].unit_price = isNaN(price) ? 0 : price;
+                if (!isNaN(price) && price >= 0) {
+                    items[index].unit_price = price;
+                }
                 renderItems();
             });
+            priceInput.addEventListener('focus', () => priceInput.select());
+
             row.querySelector('.item-remove-btn').addEventListener('click', () => {
                 items.splice(index, 1);
                 renderItems();
