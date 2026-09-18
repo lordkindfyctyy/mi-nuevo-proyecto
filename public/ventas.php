@@ -25,6 +25,17 @@ $totalVendido = array_sum(array_map(
     <h1 class="h3 fw-bold mb-0">Historial de ventas</h1>
 </div>
 
+<?php if (isset($_GET['edit_success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show">Venta actualizada correctamente.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php elseif (isset($_GET['edit_error'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show">No se pudo actualizar la venta<?= $_GET['edit_error'] === 'stock' ? ' (no hay suficiente stock para uno o más productos)' : '' ?>.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php endif; ?>
+<?php if (isset($_GET['cancel_success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show">Venta anulada y stock restituido.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php elseif (isset($_GET['cancel_error'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show">No se pudo anular la venta.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php endif; ?>
+
 <?php if (!$tenantId): ?>
     <div class="alert alert-warning">No hay ningún negocio registrado todavía.</div>
 <?php elseif (!$sales): ?>
@@ -78,10 +89,22 @@ $totalVendido = array_sum(array_map(
                             <?= $sale['status'] === 'completed' ? 'Completada' : 'Cancelada' ?>
                         </span>
                     </td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
                         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#items-<?= (int) $sale['id'] ?>">
                             Ver detalle
                         </button>
+                        <?php if ($sale['status'] === 'completed'): ?>
+                            <button type="button" class="btn btn-sm btn-outline-primary sale-edit-trigger" data-sale-id="<?= (int) $sale['id'] ?>" title="Editar venta" aria-label="Editar venta">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="POST" action="<?= BASE_URL ?>/process/sale_cancel_process.php" class="d-inline" onsubmit="return confirm('¿Anular la venta #<?= (int) $sale['id'] ?>? Se restituirá el stock de los productos vendidos.');">
+                                <input type="hidden" name="sale_id" value="<?= (int) $sale['id'] ?>">
+                                <input type="hidden" name="redirect_to" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular venta" aria-label="Anular venta">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <tr class="collapse" id="items-<?= (int) $sale['id'] ?>">
@@ -122,6 +145,8 @@ $totalVendido = array_sum(array_map(
         </tbody>
     </table>
 </div>
+
+<?php require_once __DIR__ . '/../includes/sale_edit_modal.php'; ?>
 
 <?php endif; ?>
 

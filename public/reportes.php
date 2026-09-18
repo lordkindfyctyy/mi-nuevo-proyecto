@@ -58,6 +58,17 @@ $paymentLabels = [
     </div>
 </div>
 
+<?php if (isset($_GET['edit_success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show">Venta actualizada correctamente.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php elseif (isset($_GET['edit_error'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show">No se pudo actualizar la venta<?= $_GET['edit_error'] === 'stock' ? ' (no hay suficiente stock para uno o más productos)' : '' ?>.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php endif; ?>
+<?php if (isset($_GET['cancel_success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show">Venta anulada y stock restituido.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php elseif (isset($_GET['cancel_error'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show">No se pudo anular la venta.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php endif; ?>
+
 <?php if (!$tenantId): ?>
     <div class="alert alert-warning">No hay ningún negocio registrado todavía.</div>
 <?php else: ?>
@@ -167,6 +178,7 @@ $paymentLabels = [
                         <th class="text-end">Descuento</th>
                         <th class="text-end">Total</th>
                         <th>Estado</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -183,6 +195,20 @@ $paymentLabels = [
                                 <span class="badge <?= $sale['status'] === 'completed' ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis' ?>">
                                     <?= $sale['status'] === 'completed' ? 'Completada' : 'Cancelada' ?>
                                 </span>
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <?php if ($sale['status'] === 'completed'): ?>
+                                    <button type="button" class="btn btn-sm btn-outline-primary sale-edit-trigger" data-sale-id="<?= (int) $sale['id'] ?>" title="Editar venta" aria-label="Editar venta">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="POST" action="<?= BASE_URL ?>/process/sale_cancel_process.php" class="d-inline" onsubmit="return confirm('¿Anular la venta #<?= (int) $sale['id'] ?>? Se restituirá el stock de los productos vendidos.');">
+                                        <input type="hidden" name="sale_id" value="<?= (int) $sale['id'] ?>">
+                                        <input type="hidden" name="redirect_to" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular venta" aria-label="Anular venta">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -236,6 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
     <?php endif; ?>
 });
 </script>
+
+<?php require_once __DIR__ . '/../includes/sale_edit_modal.php'; ?>
 
 <?php endif; ?>
 

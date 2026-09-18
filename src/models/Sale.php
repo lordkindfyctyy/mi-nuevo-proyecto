@@ -138,11 +138,109 @@ class Sale
         return $stmt->fetchAll();
     }
 
-    public static function cancel(int $id): bool
+    /**
+     * Anula una venta y devuelve al stock la cantidad de cada producto
+     * vendido. Es idempotente: si la venta ya estaba anulada, no vuelve a
+     * restituir el stock (evita duplicar la restitución con un doble click
+     * o una petición repetida).
+     */
+    public static function cancelAndRestoreStock(int $tenantId, int $id): void
     {
-        $stmt = self::db()->prepare("UPDATE sales SET status = 'cancelled' WHERE id = :id");
+        $db = self::db();
+        $db->beginTransaction();
 
-        return $stmt->execute(['id' => $id]);
+        try {
+            $sale = self::findForTenant($id, $tenantId);
+            if (!$sale) {
+                throw new RuntimeException('Venta no encontrada.');
+            }
+
+            if ($sale['status'] !== 'cancelled') {
+                foreach (self::itemsFor($id) as $item) {
+                    Product::adjustStock((int) $item['product_id'], (float) $item['quantity']);
+                }
+                $db->prepare("UPDATE sales SET status = 'cancelled' WHERE id = :id")->execute(['id' => $id]);
+            }
+
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Reemplaza los ítems de una venta activa por una nueva lista: restaura
+     * el stock de los ítems viejos, valida que haya suficiente stock para
+     * los nuevos (contando lo que esta misma edición libera), inserta los
+     * ítems nuevos y recalcula el total. El descuento existente se
+     * mantiene, recortado si ya no cabe en el nuevo subtotal.
+     *
+     * @param array<int, array{product_id:int, quantity:float, unit_price:float}> $newItems
+     */
+    public static function updateItems(int $tenantId, int $id, array $newItems): void
+    {
+        $db = self::db();
+        $db->beginTransaction();
+
+        try {
+            $sale = self::findForTenant($id, $tenantId);
+            if (!$sale || $sale['status'] !== 'completed') {
+                throw new RuntimeException('Venta no encontrada o ya anulada.');
+            }
+
+            $oldItems = self::itemsFor($id);
+            $restoredQuantity = [];
+            foreach ($oldItems as $item) {
+                $pid = (int) $item['product_id'];
+                $restoredQuantity[$pid] = ($restoredQuantity[$pid] ?? 0) + (float) $item['quantity'];
+            }
+
+            foreach ($newItems as $item) {
+                $product = Product::findForTenant($item['product_id'], $tenantId);
+                if (!$product) {
+                    throw new RuntimeException('Uno de los productos ya no existe.');
+                }
+                $available = (float) $product['stock_quantity'] + ($restoredQuantity[$item['product_id']] ?? 0);
+                if ($item['quantity'] > $available) {
+                    throw new RuntimeException('No hay suficiente stock de "' . $product['name'] . '".');
+                }
+            }
+
+            foreach ($oldItems as $item) {
+                Product::adjustStock((int) $item['product_id'], (float) $item['quantity']);
+            }
+            $db->prepare('DELETE FROM sale_items WHERE sale_id = :sale_id')->execute(['sale_id' => $id]);
+
+            $subtotal = 0.0;
+            $itemStmt = $db->prepare(
+                'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
+                 VALUES (:sale_id, :product_id, :quantity, :unit_price, :subtotal)'
+            );
+            foreach ($newItems as $item) {
+                $itemSubtotal = $item['unit_price'] * $item['quantity'];
+                $subtotal += $itemSubtotal;
+                $itemStmt->execute([
+                    'sale_id' => $id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'subtotal' => $itemSubtotal,
+                ]);
+                Product::adjustStock($item['product_id'], -$item['quantity']);
+            }
+
+            $discountAmount = min((float) $sale['discount_amount'], $subtotal);
+            $total = $subtotal - $discountAmount;
+
+            $db->prepare('UPDATE sales SET total = :total, discount_amount = :discount_amount WHERE id = :id')
+                ->execute(['total' => $total, 'discount_amount' => $discountAmount, 'id' => $id]);
+
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 
     /**
