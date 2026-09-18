@@ -1,17 +1,11 @@
 <?php
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/Sale.php';
-require_once __DIR__ . '/../src/models/Report.php';
 requireLogin();
 require_once __DIR__ . '/../includes/header.php';
 
 $tenantId = currentTenantId();
-$period = Report::normalizePeriod($_GET['period'] ?? 'all');
-$range = Report::resolveRange($period, $_GET['start'] ?? null, $_GET['end'] ?? null);
-$period = $range['period'];
-
-$sales = $tenantId ? Sale::findByDateRangeForTenant($tenantId, $range['start'], $range['end']) : [];
-$margin = $tenantId ? Report::margin($tenantId, $range) : ['revenue' => 0, 'cost' => 0, 'margin' => 0, 'margin_pct' => 0];
+$sales = $tenantId ? Sale::allByTenant($tenantId) : [];
 
 $paymentLabels = [
     'cash' => 'Efectivo',
@@ -24,65 +18,32 @@ $totalVendido = array_sum(array_map(
     fn($s) => $s['status'] === 'completed' ? (float) $s['total'] : 0,
     $sales
 ));
-
-$periodOptions = [
-    'all' => 'Todas',
-    'day' => 'Hoy',
-    'week' => 'Esta semana',
-    'month' => 'Este mes',
-];
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 fw-bold mb-0">Historial de ventas</h1>
-    <div class="d-flex flex-wrap align-items-center gap-2">
-        <div class="btn-group" role="group" aria-label="Filtrar por período">
-            <?php foreach ($periodOptions as $value => $label): ?>
-                <a href="<?= BASE_URL ?>/ventas.php?period=<?= $value ?>"
-                   class="btn btn-sm <?= $period === $value ? 'btn-primary' : 'btn-outline-primary' ?>"><?= $label ?></a>
-            <?php endforeach; ?>
-        </div>
-        <form method="GET" action="<?= BASE_URL ?>/ventas.php" class="d-flex align-items-center gap-1">
-            <input type="hidden" name="period" value="custom">
-            <input type="date" name="start" class="form-control form-control-sm" value="<?= htmlspecialchars($range['startInput']) ?>" required>
-            <span class="text-secondary small">a</span>
-            <input type="date" name="end" class="form-control form-control-sm" value="<?= htmlspecialchars($range['endInput']) ?>" required>
-            <button type="submit" class="btn btn-sm <?= $period === 'custom' ? 'btn-primary' : 'btn-outline-secondary' ?>">Rango personalizado</button>
-        </form>
-    </div>
 </div>
 
 <?php if (!$tenantId): ?>
     <div class="alert alert-warning">No hay ningún negocio registrado todavía.</div>
 <?php elseif (!$sales): ?>
-    <div class="alert alert-info">No hay ventas registradas en este período. <a href="<?= BASE_URL ?>/vender.php">Registra una venta</a>.</div>
+    <div class="alert alert-info">Todavía no has registrado ninguna venta. <a href="<?= BASE_URL ?>/vender.php">Registra la primera</a>.</div>
 <?php else: ?>
 
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-4">
+    <div class="col-sm-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
                 <div class="text-secondary small">Ventas registradas</div>
                 <div class="h4 fw-bold mb-0"><?= count($sales) ?></div>
-                <div class="text-secondary small mt-1"><?= htmlspecialchars($range['label']) ?></div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-4">
+    <div class="col-sm-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
                 <div class="text-secondary small">Total vendido</div>
                 <div class="h4 fw-bold mb-0">$<?= number_format($totalVendido, 2) ?></div>
-                <div class="text-secondary small mt-1"><?= htmlspecialchars($range['label']) ?></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-secondary small">Ganancia estimada</div>
-                <div class="h4 fw-bold mb-0 <?= $margin['margin'] >= 0 ? 'text-success' : 'text-danger' ?>">$<?= number_format($margin['margin'], 2) ?></div>
-                <div class="text-secondary small mt-1">Ventas - costos · <?= htmlspecialchars($range['label']) ?></div>
             </div>
         </div>
     </div>

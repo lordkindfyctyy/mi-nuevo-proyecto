@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/database.php';
 
 class Report
 {
-    public const PERIODS = ['all', 'day', 'week', 'month', 'year', 'custom'];
+    public const PERIODS = ['day', 'week', 'month', 'year', 'custom'];
 
     private static function db(): PDO
     {
@@ -53,17 +53,6 @@ class Report
     {
         $period = self::normalizePeriod($period);
         $now = self::dbNow();
-
-        if ($period === 'all') {
-            return [
-                'period' => 'all',
-                'start' => '1970-01-01 00:00:00',
-                'end' => $now->format('Y-m-d H:i:s'),
-                'label' => 'Todas',
-                'startInput' => '1970-01-01',
-                'endInput' => $now->format('Y-m-d'),
-            ];
-        }
 
         if ($period === 'custom') {
             $start = self::parseDate($customStart);
