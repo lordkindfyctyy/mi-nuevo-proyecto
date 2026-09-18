@@ -73,6 +73,7 @@ function pos_render_nav(array $items, string $currentPage): void
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vender · <?= APP_NAME ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= BASE_URL ?>/assets/favicon.svg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
@@ -208,11 +209,17 @@ function pos_render_nav(array $items, string $currentPage): void
         <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#posSidebarOffcanvas" aria-controls="posSidebarOffcanvas">
             <i class="bi bi-list"></i>
         </button>
-        <a href="<?= BASE_URL ?>/index.php" class="fw-bold text-primary text-decoration-none"><?= APP_NAME ?></a>
+        <a href="<?= BASE_URL ?>/index.php" class="brand-logo brand-logo-sm text-decoration-none">
+            <span class="brand-mark" aria-hidden="true">6&amp;7</span>
+            <span class="brand-word"><?= APP_NAME ?></span>
+        </a>
     </div>
 
     <aside class="pos-sidebar">
-        <a href="<?= BASE_URL ?>/index.php" class="pos-sidebar-brand"><?= APP_NAME ?></a>
+        <a href="<?= BASE_URL ?>/index.php" class="pos-sidebar-brand brand-logo">
+            <span class="brand-mark" aria-hidden="true">6&amp;7</span>
+            <span class="brand-word"><?= APP_NAME ?></span>
+        </a>
         <nav class="pos-nav"><?php pos_render_nav($navItems, $currentPage); ?></nav>
         <div class="pos-sidebar-footer text-secondary">
             <div class="fw-semibold text-truncate"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
@@ -223,7 +230,10 @@ function pos_render_nav(array $items, string $currentPage): void
 
     <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="posSidebarOffcanvas">
         <div class="offcanvas-header">
-            <h5 class="offcanvas-title"><?= APP_NAME ?></h5>
+            <h5 class="offcanvas-title brand-logo brand-logo-sm mb-0">
+                <span class="brand-mark" aria-hidden="true">6&amp;7</span>
+                <span class="brand-word"><?= APP_NAME ?></span>
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
         <div class="offcanvas-body d-flex flex-column p-0">

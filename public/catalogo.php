@@ -62,12 +62,20 @@ $whatsappGeneralUrl = $whatsappDigits
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($tenant['name']) ?> · Catálogo</title>
+    <link rel="icon" type="image/svg+xml" href="<?= BASE_URL ?>/assets/favicon.svg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body { margin: 0; background: #f1f2f4; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
         .catalog-header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 1rem; position: sticky; top: 0; z-index: 10; }
         .catalog-body { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+        .catalog-brand-mark {
+            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 2.1rem; height: 2.1rem; border-radius: .6rem;
+            background: linear-gradient(135deg, #00b28f, #009677); color: #fff;
+            font-weight: 800; font-size: .8rem; letter-spacing: -.04em;
+            box-shadow: 0 .15rem .4rem rgba(0, 178, 143, .35);
+        }
         .catalog-search-row { display: flex; gap: .5rem; flex-wrap: wrap; }
         .catalog-search-row .input-group { flex: 1 1 220px; }
         .catalog-brand-select { flex: 0 1 180px; min-width: 140px; }
@@ -132,9 +140,12 @@ $whatsappGeneralUrl = $whatsappDigits
 <body>
     <div class="catalog-header">
         <div class="catalog-body py-0 d-flex align-items-center justify-content-between gap-3">
-            <div class="min-w-0">
-                <h1 class="h5 fw-bold mb-0 text-truncate"><?= htmlspecialchars($tenant['name']) ?></h1>
-                <div class="text-secondary small">Catálogo en vivo · <span id="last-updated">actualizando...</span></div>
+            <div class="d-flex align-items-center gap-2 min-w-0">
+                <span class="catalog-brand-mark" aria-hidden="true">6&amp;7</span>
+                <div class="min-w-0">
+                    <h1 class="h5 fw-bold mb-0 text-truncate"><?= htmlspecialchars($tenant['name']) ?></h1>
+                    <div class="text-secondary small">Catálogo en vivo · <span id="last-updated">actualizando...</span></div>
+                </div>
             </div>
             <?php if ($products): ?>
             <button type="button" class="btn btn-primary position-relative flex-shrink-0" data-bs-toggle="modal" data-bs-target="#cartModal">

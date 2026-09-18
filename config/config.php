@@ -57,7 +57,7 @@ if (!is_array($overrides)) {
 }
 
 define('APP_ENV', app_detect_environment());
-define('APP_NAME', app_config($overrides, 'APP_NAME', 'Mi Nuevo Proyecto'));
+define('APP_NAME', app_config($overrides, 'APP_NAME', 'SixSeven'));
 
 if (APP_ENV === 'local') {
     define('BASE_URL', app_config($overrides, 'APP_BASE_URL', 'http://localhost:8000'));

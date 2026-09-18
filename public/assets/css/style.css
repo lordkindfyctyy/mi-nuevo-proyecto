@@ -22,6 +22,39 @@
     color: var(--color-primary) !important;
 }
 
+/* Logo "6&7": isotipo (badge) + wordmark, usado en el navbar y en la
+   barra lateral del mostrador. */
+.brand-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    text-decoration: none;
+}
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: .6rem;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: #fff;
+    font-weight: 800;
+    font-size: .82rem;
+    letter-spacing: -.04em;
+    box-shadow: 0 .15rem .4rem rgba(0, 178, 143, .35);
+}
+.brand-word {
+    font-weight: 700;
+    color: var(--color-primary);
+    font-size: 1.1rem;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+}
+.brand-logo-sm .brand-mark { width: 1.7rem; height: 1.7rem; font-size: .68rem; border-radius: .5rem; }
+.brand-logo-sm .brand-word { font-size: .95rem; }
+
 * {
     box-sizing: border-box;
 }

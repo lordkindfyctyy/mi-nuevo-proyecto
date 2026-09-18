@@ -8,6 +8,7 @@ require_once __DIR__ . '/tenant_context.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= APP_NAME ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= BASE_URL ?>/assets/favicon.svg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
@@ -16,7 +17,10 @@ require_once __DIR__ . '/tenant_context.php';
     <header class="site-header">
         <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
             <div class="container">
-                <a class="navbar-brand fw-bold text-primary" href="<?= BASE_URL ?>/index.php"><?= APP_NAME ?></a>
+                <a class="navbar-brand brand-logo" href="<?= BASE_URL ?>/index.php">
+                    <span class="brand-mark" aria-hidden="true">6&amp;7</span>
+                    <span class="brand-word"><?= APP_NAME ?></span>
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Alternar navegación">
                     <span class="navbar-toggler-icon"></span>
                 </button>
