@@ -160,12 +160,14 @@ CREATE TABLE IF NOT EXISTS purchase_items (
     CONSTRAINT fk_purchase_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Mensajes del formulario de contacto público (contact.php), no ligados a un tenant
+-- Mensajes del formulario de contacto público (contact.php) y del widget de
+-- soporte en vivo, no ligados a un tenant
 CREATE TABLE IF NOT EXISTS contact_messages (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
-    email VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NULL,
     message TEXT NOT NULL,
+    source ENUM('contact_form', 'live_chat') NOT NULL DEFAULT 'contact_form',
     status ENUM('unread', 'read') NOT NULL DEFAULT 'unread',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_contact_messages_status (status)

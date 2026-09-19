@@ -20,6 +20,7 @@ $messages = ContactMessage::all();
         <thead>
             <tr>
                 <th>Estado</th>
+                <th>Origen</th>
                 <th>Nombre</th>
                 <th>Email</th>
                 <th>Mensaje</th>
@@ -37,8 +38,21 @@ $messages = ContactMessage::all();
                             <span class="badge text-bg-secondary">Leído</span>
                         <?php endif; ?>
                     </td>
+                    <td>
+                        <?php if (($msg['source'] ?? 'contact_form') === 'live_chat'): ?>
+                            <span class="badge text-bg-success"><i class="bi bi-headset"></i> Soporte en vivo</span>
+                        <?php else: ?>
+                            <span class="badge text-bg-light border">Formulario web</span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= htmlspecialchars($msg['name']) ?></td>
-                    <td><a href="mailto:<?= htmlspecialchars($msg['email']) ?>"><?= htmlspecialchars($msg['email']) ?></a></td>
+                    <td>
+                        <?php if (!empty($msg['email'])): ?>
+                            <a href="mailto:<?= htmlspecialchars($msg['email']) ?>"><?= htmlspecialchars($msg['email']) ?></a>
+                        <?php else: ?>
+                            <span class="text-secondary">—</span>
+                        <?php endif; ?>
+                    </td>
                     <td style="max-width: 360px; white-space: pre-wrap;"><?= htmlspecialchars($msg['message']) ?></td>
                     <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($msg['created_at']))) ?></td>
                     <td class="text-end">
@@ -58,7 +72,7 @@ $messages = ContactMessage::all();
                 </tr>
             <?php endforeach; ?>
             <?php if (!$messages): ?>
-                <tr><td colspan="6" class="text-center text-secondary py-4">No hay mensajes recibidos todavía.</td></tr>
+                <tr><td colspan="7" class="text-center text-secondary py-4">No hay mensajes recibidos todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

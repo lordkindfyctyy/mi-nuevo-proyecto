@@ -9,15 +9,16 @@ class ContactMessage
         return getConnection();
     }
 
-    public static function create(string $name, string $email, string $message): int
+    public static function create(string $name, ?string $email, string $message, string $source = 'contact_form'): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO contact_messages (name, email, message) VALUES (:name, :email, :message)'
+            'INSERT INTO contact_messages (name, email, message, source) VALUES (:name, :email, :message, :source)'
         );
         $stmt->execute([
             'name' => $name,
             'email' => $email,
             'message' => $message,
+            'source' => $source,
         ]);
 
         return (int) self::db()->lastInsertId();
