@@ -277,8 +277,11 @@ main {
     position: fixed;
     left: 1.5rem;
     bottom: 5.5rem;
-    width: 320px;
+    width: 340px;
     max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 8rem);
+    display: flex;
+    flex-direction: column;
     background: #fff;
     border-radius: 1rem;
     box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, .18);
@@ -316,11 +319,55 @@ main {
 }
 .support-widget-body {
     padding: 1.25rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 .support-widget-greeting {
     font-size: .9rem;
     color: var(--color-text);
     margin-bottom: 1rem;
+}
+.support-widget-chat {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.support-widget-messages {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    max-height: 260px;
+    overflow-y: auto;
+    margin-bottom: .75rem;
+    padding-right: .25rem;
+}
+.support-widget-bubble {
+    max-width: 85%;
+    padding: .5rem .75rem;
+    border-radius: .9rem;
+    font-size: .85rem;
+    line-height: 1.35;
+}
+.support-widget-bubble time {
+    display: block;
+    margin-top: .2rem;
+    font-size: .7rem;
+    opacity: .7;
+}
+.support-widget-bubble-visitor {
+    align-self: flex-end;
+    background: var(--color-primary);
+    color: #fff;
+    border-bottom-right-radius: .25rem;
+}
+.support-widget-bubble-admin {
+    align-self: flex-start;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-bottom-left-radius: .25rem;
 }
 .support-widget-feedback {
     margin-top: .75rem;

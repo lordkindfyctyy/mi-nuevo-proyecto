@@ -161,16 +161,23 @@ CREATE TABLE IF NOT EXISTS purchase_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Mensajes del formulario de contacto público (contact.php) y del widget de
--- soporte en vivo, no ligados a un tenant
+-- soporte en vivo (chat bidireccional), no ligados a un tenant.
+-- Los mensajes de source='live_chat' se agrupan en una conversación por
+-- email; widget_token autentica al visitante anónimo dueño de esa
+-- conversación (los usuarios logueados se identifican por su sesión).
 CREATE TABLE IF NOT EXISTS contact_messages (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NULL,
+    phone VARCHAR(30) NULL,
     message TEXT NOT NULL,
     source ENUM('contact_form', 'live_chat') NOT NULL DEFAULT 'contact_form',
+    sender ENUM('visitor', 'admin') NOT NULL DEFAULT 'visitor',
+    widget_token VARCHAR(32) NULL,
     status ENUM('unread', 'read') NOT NULL DEFAULT 'unread',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_contact_messages_status (status)
+    KEY idx_contact_messages_status (status),
+    KEY idx_contact_messages_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

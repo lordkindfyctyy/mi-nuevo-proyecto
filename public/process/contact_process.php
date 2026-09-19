@@ -17,7 +17,12 @@ if ($name === '' || $email === '' || $message === '' || !filter_var($email, FILT
 }
 
 try {
-    ContactMessage::create($name, $email, $message);
+    ContactMessage::create([
+        'name' => $name,
+        'email' => $email,
+        'message' => $message,
+        'source' => 'contact_form',
+    ]);
 } catch (Throwable $e) {
     header('Location: ' . BASE_URL . '/contact.php?error=1');
     exit;
