@@ -45,6 +45,16 @@ class ContactMessage
         return (int) self::db()->query("SELECT COUNT(*) FROM contact_messages WHERE status = 'unread'")->fetchColumn();
     }
 
+    public static function countUnreadBySource(string $source, ?int $tenantId = null): int
+    {
+        [$where, $params] = self::whereClause($source, $tenantId);
+
+        $stmt = self::db()->prepare("SELECT COUNT(*) FROM contact_messages WHERE $where AND sender = 'visitor' AND status = 'unread'");
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public static function find(int $id): ?array
     {
         $stmt = self::db()->prepare('SELECT * FROM contact_messages WHERE id = :id');
