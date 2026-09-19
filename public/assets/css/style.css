@@ -27,7 +27,7 @@
 .brand-logo {
     display: inline-flex;
     align-items: center;
-    gap: .65rem;
+    gap: .845rem;
     text-decoration: none;
 }
 .brand-mark {
@@ -35,20 +35,20 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 2.52rem;
-    height: 2.52rem;
-    border-radius: .72rem;
+    width: 3.276rem;
+    height: 3.276rem;
+    border-radius: .936rem;
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
     color: #fff;
     font-weight: 800;
-    font-size: 1rem;
+    font-size: 1.3rem;
     letter-spacing: -.04em;
     box-shadow: 0 .15rem .4rem rgba(0, 178, 143, .35);
 }
 .brand-word {
     font-weight: 700;
     color: var(--color-primary);
-    font-size: 1.32rem;
+    font-size: 1.716rem;
     letter-spacing: -.01em;
     white-space: nowrap;
 }
