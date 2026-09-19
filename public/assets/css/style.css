@@ -175,6 +175,48 @@ main {
     padding: 3rem 2rem;
 }
 
+/* about.php: hero + tarjetas de pilares + sección de misión */
+.about-hero {
+    background: linear-gradient(135deg, #00cfa8, var(--color-primary-dark));
+    color: #fff;
+    border-radius: 1.5rem;
+    padding: 3.5rem 2rem;
+    text-align: center;
+    box-shadow: 0 1.5rem 3rem rgba(0, 178, 143, .25);
+}
+.about-hero p {
+    color: rgba(255, 255, 255, .92);
+}
+.pillar-card {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 1.25rem;
+    overflow: hidden;
+    height: 100%;
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .05);
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.pillar-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 1rem 2rem rgba(0, 178, 143, .18);
+}
+.pillar-card-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+}
+.pillar-card-body {
+    padding: 1.5rem;
+}
+.mission-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 1.25rem;
+    box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, .12);
+}
+
 .form {
     display: flex;
     flex-direction: column;
