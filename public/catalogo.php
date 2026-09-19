@@ -800,5 +800,7 @@ $whatsappGeneralUrl = $whatsappDigits
         setInterval(refreshFromServer, 20000);
     });
     </script>
+
+    <?php $catalogToken = $token; require __DIR__ . '/../includes/catalog_chat_widget.php'; ?>
 </body>
 </html>

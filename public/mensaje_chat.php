@@ -4,23 +4,33 @@ require_once __DIR__ . '/../src/models/ContactMessage.php';
 requireLogin();
 
 $email = trim($_GET['email'] ?? '');
+$source = $_GET['source'] ?? 'live_chat';
+
+if (!in_array($source, ['live_chat', 'catalog_chat'], true)) {
+    $source = 'live_chat';
+}
 
 if ($email === '') {
     header('Location: ' . BASE_URL . '/mensajes.php');
     exit;
 }
 
-ContactMessage::markConversationRead($email);
-$messages = ContactMessage::conversationByEmail($email);
+// catalog_chat conversations belong to a specific tenant; live_chat (tech
+// support) is global, so no tenant is enforced there.
+$scopeTenantId = $source === 'catalog_chat' ? currentTenantId() : null;
+
+ContactMessage::markConversationRead($source, $email, $scopeTenantId);
+$messages = ContactMessage::conversationByEmail($source, $email, $scopeTenantId);
 
 require_once __DIR__ . '/../includes/header.php';
 
 $latest = $messages ? end($messages) : null;
+$title = $source === 'catalog_chat' ? 'Chat de catálogo con' : 'Chat de soporte con';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h3 fw-bold mb-1">Chat con <?= htmlspecialchars($latest['name'] ?? $email) ?></h1>
+        <h1 class="h3 fw-bold mb-1"><?= $title ?> <?= htmlspecialchars($latest['name'] ?? $email) ?></h1>
         <p class="text-secondary mb-0">
             <?= htmlspecialchars($email) ?>
             <?php if (!empty($latest['phone'])): ?> · <?= htmlspecialchars($latest['phone']) ?><?php endif; ?>
@@ -31,6 +41,10 @@ $latest = $messages ? end($messages) : null;
 
 <?php if (isset($_GET['error'])): ?>
     <div class="alert alert-danger">No se pudo enviar la respuesta. Intentá de nuevo.</div>
+<?php endif; ?>
+
+<?php if ($source === 'catalog_chat' && !$messages && !$scopeTenantId): ?>
+    <div class="alert alert-warning">No hay ningún negocio registrado en tu sesión todavía.</div>
 <?php endif; ?>
 
 <div class="card border-0 shadow-sm">
@@ -49,6 +63,7 @@ $latest = $messages ? end($messages) : null;
 
         <form method="POST" action="<?= BASE_URL ?>/process/contact_reply_process.php">
             <input type="hidden" name="email" value="<?= htmlspecialchars($email) ?>">
+            <input type="hidden" name="source" value="<?= htmlspecialchars($source) ?>">
             <textarea name="message" rows="3" class="form-control mb-2" placeholder="Escribí tu respuesta..." required></textarea>
             <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">Responder</button>
         </form>

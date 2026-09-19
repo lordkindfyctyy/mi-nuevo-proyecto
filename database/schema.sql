@@ -160,24 +160,33 @@ CREATE TABLE IF NOT EXISTS purchase_items (
     CONSTRAINT fk_purchase_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Mensajes del formulario de contacto público (contact.php) y del widget de
--- soporte en vivo (chat bidireccional), no ligados a un tenant.
--- Los mensajes de source='live_chat' se agrupan en una conversación por
+-- Mensajes de tres canales distintos, todos agrupados en una sola tabla:
+--  - contact_form:  formulario público de contact.php (global, sin tenant)
+--  - live_chat:     widget "Asistente SixSeven" (soporte técnico interno,
+--                    solo para staff logueado; global, sin tenant)
+--  - catalog_chat:  chat del catálogo público (catalogo.php) entre un
+--                    cliente anónimo y el negocio dueño de ese catálogo
+--                    (ligado a tenant_id)
+-- Los mensajes de live_chat/catalog_chat se agrupan en una conversación por
 -- email; widget_token autentica al visitante anónimo dueño de esa
--- conversación (los usuarios logueados se identifican por su sesión).
+-- conversación (los usuarios logueados se identifican por su sesión, no
+-- necesitan token).
 CREATE TABLE IF NOT EXISTS contact_messages (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT UNSIGNED NULL,
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NULL,
     phone VARCHAR(30) NULL,
     message TEXT NOT NULL,
-    source ENUM('contact_form', 'live_chat') NOT NULL DEFAULT 'contact_form',
+    source ENUM('contact_form', 'live_chat', 'catalog_chat') NOT NULL DEFAULT 'contact_form',
     sender ENUM('visitor', 'admin') NOT NULL DEFAULT 'visitor',
     widget_token VARCHAR(32) NULL,
     status ENUM('unread', 'read') NOT NULL DEFAULT 'unread',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_contact_messages_status (status),
-    KEY idx_contact_messages_email (email)
+    KEY idx_contact_messages_email (email),
+    KEY idx_contact_messages_tenant (tenant_id),
+    CONSTRAINT fk_contact_messages_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

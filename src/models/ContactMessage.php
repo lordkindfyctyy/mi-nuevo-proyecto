@@ -10,15 +10,16 @@ class ContactMessage
     }
 
     /**
-     * @param array{name:string,email?:?string,phone?:?string,message:string,source?:string,sender?:string,widget_token?:?string} $data
+     * @param array{tenant_id?:?int,name:string,email?:?string,phone?:?string,message:string,source?:string,sender?:string,widget_token?:?string} $data
      */
     public static function create(array $data): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO contact_messages (name, email, phone, message, source, sender, widget_token)
-             VALUES (:name, :email, :phone, :message, :source, :sender, :widget_token)'
+            'INSERT INTO contact_messages (tenant_id, name, email, phone, message, source, sender, widget_token)
+             VALUES (:tenant_id, :name, :email, :phone, :message, :source, :sender, :widget_token)'
         );
         $stmt->execute([
+            'tenant_id' => $data['tenant_id'] ?? null,
             'name' => $data['name'],
             'email' => $data['email'] ?? null,
             'phone' => $data['phone'] ?? null,
@@ -29,11 +30,6 @@ class ContactMessage
         ]);
 
         return (int) self::db()->lastInsertId();
-    }
-
-    public static function all(): array
-    {
-        return self::db()->query('SELECT * FROM contact_messages ORDER BY created_at DESC')->fetchAll();
     }
 
     public static function allBySource(string $source): array
@@ -72,88 +68,109 @@ class ContactMessage
         return $stmt->execute(['id' => $id]);
     }
 
-    /**
-     * Full live-chat conversation for one email, oldest first.
-     */
-    public static function conversationByEmail(string $email): array
+    private static function whereClause(string $source, ?int $tenantId): array
     {
-        $stmt = self::db()->prepare(
-            "SELECT * FROM contact_messages
-             WHERE source = 'live_chat' AND email = :email
-             ORDER BY created_at ASC"
-        );
-        $stmt->execute(['email' => $email]);
+        $where = 'source = :source';
+        $params = ['source' => $source];
+
+        if ($tenantId !== null) {
+            $where .= ' AND tenant_id = :tenant_id';
+            $params['tenant_id'] = $tenantId;
+        }
+
+        return [$where, $params];
+    }
+
+    /**
+     * Full conversation for one email on one channel, oldest first.
+     */
+    public static function conversationByEmail(string $source, string $email, ?int $tenantId = null): array
+    {
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $params['email'] = $email;
+
+        $stmt = self::db()->prepare("SELECT * FROM contact_messages WHERE $where AND email = :email ORDER BY created_at ASC");
+        $stmt->execute($params);
 
         return $stmt->fetchAll();
     }
 
     /**
-     * Only the visitor messages newer than $afterId, for lightweight polling.
+     * Only messages newer than $afterId, for lightweight polling.
      */
-    public static function conversationByEmailAfter(string $email, int $afterId): array
+    public static function conversationByEmailAfter(string $source, string $email, int $afterId, ?int $tenantId = null): array
     {
-        $stmt = self::db()->prepare(
-            "SELECT * FROM contact_messages
-             WHERE source = 'live_chat' AND email = :email AND id > :after_id
-             ORDER BY created_at ASC"
-        );
-        $stmt->execute(['email' => $email, 'after_id' => $afterId]);
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $params['email'] = $email;
+        $params['after_id'] = $afterId;
+
+        $stmt = self::db()->prepare("SELECT * FROM contact_messages WHERE $where AND email = :email AND id > :after_id ORDER BY created_at ASC");
+        $stmt->execute($params);
 
         return $stmt->fetchAll();
     }
 
-    public static function countByEmail(string $email): int
+    public static function countByEmail(string $source, string $email, ?int $tenantId = null): int
     {
-        $stmt = self::db()->prepare("SELECT COUNT(*) FROM contact_messages WHERE source = 'live_chat' AND email = :email");
-        $stmt->execute(['email' => $email]);
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $params['email'] = $email;
+
+        $stmt = self::db()->prepare("SELECT COUNT(*) FROM contact_messages WHERE $where AND email = :email");
+        $stmt->execute($params);
 
         return (int) $stmt->fetchColumn();
     }
 
     /**
-     * True if a visitor message from this email exists with this widget_token,
-     * i.e. the caller actually owns this conversation.
+     * True if a visitor message on this channel exists for this email with
+     * this widget_token, i.e. the caller actually owns this conversation.
      */
-    public static function tokenMatchesEmail(string $email, string $token): bool
+    public static function tokenMatchesEmail(string $source, string $email, string $token): bool
     {
         $stmt = self::db()->prepare(
             "SELECT COUNT(*) FROM contact_messages
-             WHERE source = 'live_chat' AND email = :email AND widget_token = :token AND sender = 'visitor'"
+             WHERE source = :source AND email = :email AND widget_token = :token AND sender = 'visitor'"
         );
-        $stmt->execute(['email' => $email, 'token' => $token]);
+        $stmt->execute(['source' => $source, 'email' => $email, 'token' => $token]);
 
         return (int) $stmt->fetchColumn() > 0;
     }
 
-    public static function markConversationRead(string $email): bool
+    public static function markConversationRead(string $source, string $email, ?int $tenantId = null): bool
     {
-        $stmt = self::db()->prepare(
-            "UPDATE contact_messages SET status = 'read'
-             WHERE source = 'live_chat' AND email = :email AND sender = 'visitor'"
-        );
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $params['email'] = $email;
 
-        return $stmt->execute(['email' => $email]);
+        $stmt = self::db()->prepare("UPDATE contact_messages SET status = 'read' WHERE $where AND email = :email AND sender = 'visitor'");
+
+        return $stmt->execute($params);
     }
 
     /**
-     * One row per live-chat conversation (grouped by email), newest first,
-     * for the admin inbox list.
+     * One row per conversation (grouped by email) on one channel, newest
+     * first, for the admin inbox list.
      */
-    public static function liveChatConversations(): array
+    public static function conversationsBySource(string $source, ?int $tenantId = null): array
     {
-        return self::db()->query(
-            "SELECT
-                cm.email,
-                (SELECT name FROM contact_messages WHERE source = 'live_chat' AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS name,
-                (SELECT phone FROM contact_messages WHERE source = 'live_chat' AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS phone,
-                (SELECT message FROM contact_messages WHERE source = 'live_chat' AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS last_message,
-                (SELECT sender FROM contact_messages WHERE source = 'live_chat' AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS last_sender,
-                MAX(cm.created_at) AS last_created_at,
-                SUM(CASE WHEN cm.sender = 'visitor' AND cm.status = 'unread' THEN 1 ELSE 0 END) AS unread_count
-             FROM contact_messages cm
-             WHERE cm.source = 'live_chat' AND cm.email IS NOT NULL AND cm.email <> ''
-             GROUP BY cm.email
-             ORDER BY last_created_at DESC"
-        )->fetchAll();
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $where .= " AND email IS NOT NULL AND email <> ''";
+
+        $sql = "SELECT
+                    cm.email,
+                    (SELECT name FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS name,
+                    (SELECT phone FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS phone,
+                    (SELECT message FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS last_message,
+                    (SELECT sender FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS last_sender,
+                    MAX(cm.created_at) AS last_created_at,
+                    SUM(CASE WHEN cm.sender = 'visitor' AND cm.status = 'unread' THEN 1 ELSE 0 END) AS unread_count
+                 FROM contact_messages cm
+                 WHERE $where
+                 GROUP BY cm.email
+                 ORDER BY last_created_at DESC";
+
+        $stmt = self::db()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll();
     }
 }
