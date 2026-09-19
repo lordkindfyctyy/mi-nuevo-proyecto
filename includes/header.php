@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/tenant_context.php';
+
+$unreadMessages = 0;
+if (isLoggedIn()) {
+    require_once __DIR__ . '/../src/models/ContactMessage.php';
+    $unreadMessages = ContactMessage::countUnread();
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -57,6 +63,16 @@ require_once __DIR__ . '/tenant_context.php';
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'contact.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/contact.php">Contacto</a>
                         </li>
+                        <?php if (isLoggedIn()): ?>
+                            <li class="nav-item">
+                                <a class="nav-link <?= $currentPage === 'mensajes.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/mensajes.php">
+                                    Mensajes
+                                    <?php if ($unreadMessages > 0): ?>
+                                        <span class="badge rounded-pill text-bg-primary"><?= $unreadMessages ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     </ul>
                     <?php if (isLoggedIn()): ?>
                         <span class="navbar-text text-secondary small me-lg-3">

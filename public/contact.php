@@ -2,6 +2,14 @@
 
 <section>
     <h1>Contacto</h1>
+
+    <?php if (isset($_GET['success'])): ?>
+        <div class="alert alert-success">Gracias por escribirnos, te responderemos a la brevedad.</div>
+    <?php endif; ?>
+    <?php if (isset($_GET['error'])): ?>
+        <div class="alert alert-danger">No pudimos enviar tu mensaje. Revisa los datos e intenta de nuevo.</div>
+    <?php endif; ?>
+
     <form action="<?= BASE_URL ?>/process/contact_process.php" method="POST" class="form">
         <label for="name">Nombre</label>
         <input type="text" id="name" name="name" required>
