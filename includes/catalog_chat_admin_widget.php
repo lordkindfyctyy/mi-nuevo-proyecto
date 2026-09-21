@@ -197,7 +197,7 @@
     var replyInput = document.getElementById('adminChatReplyInput');
     var feedback = document.getElementById('adminChatFeedback');
 
-    var activeEmail = null;
+    var activeToken = null;
     var lastMessageId = 0;
     var pollTimer = null;
 
@@ -249,7 +249,7 @@
                     (conv.unread_count > 0 ? '<span class="catalog-chat-conv-badge">' + conv.unread_count + '</span>' : '') +
                 '</div>' +
                 '<div class="catalog-chat-conv-preview">' + escapeHtml(prefix + conv.last_message) + '</div>';
-            item.addEventListener('click', function () { openThread(conv.email, conv.name, conv.phone); });
+            item.addEventListener('click', function () { openThread(conv.token, conv.name, conv.phone); });
             listItems.appendChild(item);
         });
     }
@@ -277,15 +277,15 @@
         if (messages.length) messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    function openThread(email, name, phone) {
-        activeEmail = email;
+    function openThread(token, name, phone) {
+        activeToken = token;
         lastMessageId = 0;
-        threadName.textContent = name || email;
-        threadContact.textContent = email + (phone ? ' · ' + phone : '');
+        threadName.textContent = name || 'Cliente del catálogo';
+        threadContact.textContent = phone ? phone : 'Sin teléfono';
         listView.hidden = true;
         threadView.hidden = false;
 
-        api({ action: 'thread', email: email }).then(function (data) {
+        api({ action: 'thread', token: token }).then(function (data) {
             if (data.ok) renderMessages(data.messages, false);
         }).finally(function () {
             refreshBadge();
@@ -294,15 +294,15 @@
     }
 
     function backToList() {
-        activeEmail = null;
+        activeToken = null;
         threadView.hidden = true;
         listView.hidden = false;
         loadList();
     }
 
     function pollActive() {
-        if (activeEmail) {
-            api({ action: 'thread', email: activeEmail, after_id: lastMessageId }).then(function (data) {
+        if (activeToken) {
+            api({ action: 'thread', token: activeToken, after_id: lastMessageId }).then(function (data) {
                 if (data.ok && data.messages.length) renderMessages(data.messages, true);
             }).catch(function () { /* silent */ });
         } else {
@@ -357,14 +357,14 @@
     replyForm.addEventListener('submit', function (e) {
         e.preventDefault();
         var message = replyInput.value.trim();
-        if (!message || !activeEmail) return;
+        if (!message || !activeToken) return;
 
         var submitBtn = replyForm.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
 
         var body = new URLSearchParams();
         body.set('action', 'reply');
-        body.set('email', activeEmail);
+        body.set('token', activeToken);
         body.set('message', message);
 
         fetch('<?= BASE_URL ?>/api/catalog_chat_admin.php', { method: 'POST', body: body })

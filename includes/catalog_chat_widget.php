@@ -155,12 +155,8 @@
                     <input type="text" id="catalogChatName" placeholder="Nombre" required>
                 </div>
                 <div class="catalog-chat-field">
-                    <i class="bi bi-envelope"></i>
-                    <input type="email" id="catalogChatEmail" placeholder="Email" required>
-                </div>
-                <div class="catalog-chat-field">
-                    <i class="bi bi-telephone"></i>
-                    <input type="tel" id="catalogChatPhone" placeholder="Celular" required>
+                    <i class="bi bi-whatsapp"></i>
+                    <input type="tel" id="catalogChatPhone" placeholder="Teléfono / WhatsApp (opcional)">
                 </div>
                 <button type="submit" class="catalog-chat-identify-submit">Comenzar chat</button>
             </form>
@@ -198,6 +194,13 @@
     var pollTimer = null;
     var lastMessageId = 0;
     var loaded = false;
+
+    function generateToken() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '');
+        var bytes = new Uint8Array(16);
+        (window.crypto || {}).getRandomValues ? crypto.getRandomValues(bytes) : bytes.forEach(function (_, i) { bytes[i] = Math.floor(Math.random() * 256); });
+        return Array.from(bytes, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
 
     function getIdentity() {
         try {
@@ -246,9 +249,9 @@
 
     function pollForReplies() {
         var identity = getIdentity();
-        if (!identity || !identity.email) return;
+        if (!identity || !identity.token) return;
 
-        fetchQuery({ after_id: lastMessageId, email: identity.email, token: identity.token || '' }).then(function (data) {
+        fetchQuery({ after_id: lastMessageId, token: identity.token }).then(function (data) {
             if (data.ok && data.messages && data.messages.length) {
                 renderMessages(data.messages, true);
             }
@@ -282,7 +285,7 @@
 
         showConversation();
 
-        fetchQuery({ email: identity.email, token: identity.token || '' }).then(function (data) {
+        fetchQuery({ token: identity.token }).then(function (data) {
             if (data.ok) renderMessages(data.messages, false);
         }).catch(function () { /* keep the empty chat, user can still send a message */ });
     }
@@ -323,11 +326,10 @@
     identifyForm.addEventListener('submit', function (e) {
         e.preventDefault();
         var name = document.getElementById('catalogChatName').value.trim();
-        var email = document.getElementById('catalogChatEmail').value.trim();
         var phone = document.getElementById('catalogChatPhone').value.trim();
-        if (!name || !email || !phone) return;
+        if (!name) return;
 
-        saveIdentity({ name: name, email: email, phone: phone, token: null });
+        saveIdentity({ name: name, phone: phone || null, token: generateToken() });
         showConversation();
         renderMessages([], false);
     });
@@ -347,18 +349,13 @@
         body.set('t', CATALOG_TOKEN);
         body.set('message', message);
         body.set('name', identity.name);
-        body.set('email', identity.email);
-        body.set('phone', identity.phone);
-        body.set('token', identity.token || '');
+        body.set('phone', identity.phone || '');
+        body.set('token', identity.token);
 
         fetch('/api/catalog_chat.php', { method: 'POST', body: body })
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (data.ok) {
-                    if (data.token) {
-                        identity.token = data.token;
-                        saveIdentity(identity);
-                    }
                     form.reset();
                     showFeedback('¡Mensaje enviado! Te responderemos a la brevedad.', false);
                     pollForReplies();

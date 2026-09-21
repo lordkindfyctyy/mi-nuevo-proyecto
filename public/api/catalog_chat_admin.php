@@ -19,12 +19,12 @@ if ($action === 'unread_count') {
 }
 
 if ($action === 'list') {
-    $conversations = ContactMessage::conversationsBySource('catalog_chat', $tenantId);
+    $conversations = ContactMessage::conversationsBySourceByToken('catalog_chat', $tenantId);
 
     echo json_encode([
         'ok' => true,
         'conversations' => array_map(static fn ($c) => [
-            'email' => $c['email'],
+            'token' => $c['token'],
             'name' => $c['name'],
             'phone' => $c['phone'],
             'last_message' => $c['last_message'],
@@ -37,21 +37,21 @@ if ($action === 'list') {
 }
 
 if ($action === 'thread') {
-    $email = trim($_GET['email'] ?? '');
-    if ($email === '') {
-        echo json_encode(['ok' => false, 'error' => 'Falta el email de la conversación.']);
+    $token = trim($_GET['token'] ?? '');
+    if ($token === '') {
+        echo json_encode(['ok' => false, 'error' => 'Falta el identificador de la conversación.']);
         exit;
     }
 
     $afterId = (int) ($_GET['after_id'] ?? 0);
 
     if ($afterId === 0) {
-        ContactMessage::markConversationRead('catalog_chat', $email, $tenantId);
+        ContactMessage::markConversationReadByToken('catalog_chat', $token, $tenantId);
     }
 
     $messages = $afterId > 0
-        ? ContactMessage::conversationByEmailAfter('catalog_chat', $email, $afterId, $tenantId)
-        : ContactMessage::conversationByEmail('catalog_chat', $email, $tenantId);
+        ? ContactMessage::conversationByTokenAfter('catalog_chat', $token, $afterId, $tenantId)
+        : ContactMessage::conversationByToken('catalog_chat', $token, $tenantId);
 
     echo json_encode([
         'ok' => true,
@@ -66,10 +66,10 @@ if ($action === 'thread') {
 }
 
 if ($action === 'reply' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    $token = trim($_POST['token'] ?? '');
     $message = trim($_POST['message'] ?? '');
 
-    if ($email === '' || $message === '') {
+    if ($token === '' || $message === '') {
         http_response_code(422);
         echo json_encode(['ok' => false, 'error' => 'Escribí una respuesta antes de enviar.']);
         exit;
@@ -79,10 +79,10 @@ if ($action === 'reply' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         ContactMessage::create([
             'tenant_id' => $tenantId,
             'name' => currentUserName() ?? 'Vendedor',
-            'email' => $email,
             'message' => $message,
             'source' => 'catalog_chat',
             'sender' => 'admin',
+            'widget_token' => $token,
         ]);
         echo json_encode(['ok' => true]);
     } catch (Throwable $e) {

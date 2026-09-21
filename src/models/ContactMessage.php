@@ -120,30 +120,69 @@ class ContactMessage
         return $stmt->fetchAll();
     }
 
-    public static function countByEmail(string $source, string $email, ?int $tenantId = null): int
+    /**
+     * Full conversation for one widget_token (the catalog chat's per-browser
+     * identity, since it no longer collects email), oldest first.
+     */
+    public static function conversationByToken(string $source, string $token, ?int $tenantId = null): array
     {
         [$where, $params] = self::whereClause($source, $tenantId);
-        $params['email'] = $email;
+        $params['token'] = $token;
 
-        $stmt = self::db()->prepare("SELECT COUNT(*) FROM contact_messages WHERE $where AND email = :email");
+        $stmt = self::db()->prepare("SELECT * FROM contact_messages WHERE $where AND widget_token = :token ORDER BY created_at ASC");
         $stmt->execute($params);
 
-        return (int) $stmt->fetchColumn();
+        return $stmt->fetchAll();
+    }
+
+    public static function conversationByTokenAfter(string $source, string $token, int $afterId, ?int $tenantId = null): array
+    {
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $params['token'] = $token;
+        $params['after_id'] = $afterId;
+
+        $stmt = self::db()->prepare("SELECT * FROM contact_messages WHERE $where AND widget_token = :token AND id > :after_id ORDER BY created_at ASC");
+        $stmt->execute($params);
+
+        return $stmt->fetchAll();
+    }
+
+    public static function markConversationReadByToken(string $source, string $token, ?int $tenantId = null): bool
+    {
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $params['token'] = $token;
+
+        $stmt = self::db()->prepare("UPDATE contact_messages SET status = 'read' WHERE $where AND widget_token = :token AND sender = 'visitor'");
+
+        return $stmt->execute($params);
     }
 
     /**
-     * True if a visitor message on this channel exists for this email with
-     * this widget_token, i.e. the caller actually owns this conversation.
+     * One row per conversation (grouped by widget_token) on one channel,
+     * newest first, for the admin inbox list.
      */
-    public static function tokenMatchesEmail(string $source, string $email, string $token): bool
+    public static function conversationsBySourceByToken(string $source, ?int $tenantId = null): array
     {
-        $stmt = self::db()->prepare(
-            "SELECT COUNT(*) FROM contact_messages
-             WHERE source = :source AND email = :email AND widget_token = :token AND sender = 'visitor'"
-        );
-        $stmt->execute(['source' => $source, 'email' => $email, 'token' => $token]);
+        [$where, $params] = self::whereClause($source, $tenantId);
+        $where .= " AND widget_token IS NOT NULL AND widget_token <> ''";
 
-        return (int) $stmt->fetchColumn() > 0;
+        $sql = "SELECT
+                    cm.widget_token AS token,
+                    (SELECT name FROM contact_messages WHERE $where AND widget_token = cm.widget_token AND sender = 'visitor' ORDER BY created_at DESC LIMIT 1) AS name,
+                    (SELECT phone FROM contact_messages WHERE $where AND widget_token = cm.widget_token AND sender = 'visitor' ORDER BY created_at DESC LIMIT 1) AS phone,
+                    (SELECT message FROM contact_messages WHERE $where AND widget_token = cm.widget_token ORDER BY created_at DESC LIMIT 1) AS last_message,
+                    (SELECT sender FROM contact_messages WHERE $where AND widget_token = cm.widget_token ORDER BY created_at DESC LIMIT 1) AS last_sender,
+                    MAX(cm.created_at) AS last_created_at,
+                    SUM(CASE WHEN cm.sender = 'visitor' AND cm.status = 'unread' THEN 1 ELSE 0 END) AS unread_count
+                 FROM contact_messages cm
+                 WHERE $where
+                 GROUP BY cm.widget_token
+                 ORDER BY last_created_at DESC";
+
+        $stmt = self::db()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll();
     }
 
     public static function markConversationRead(string $source, string $email, ?int $tenantId = null): bool
@@ -167,8 +206,8 @@ class ContactMessage
 
         $sql = "SELECT
                     cm.email,
-                    (SELECT name FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS name,
-                    (SELECT phone FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS phone,
+                    (SELECT name FROM contact_messages WHERE $where AND email = cm.email AND sender = 'visitor' ORDER BY created_at DESC LIMIT 1) AS name,
+                    (SELECT phone FROM contact_messages WHERE $where AND email = cm.email AND sender = 'visitor' ORDER BY created_at DESC LIMIT 1) AS phone,
                     (SELECT message FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS last_message,
                     (SELECT sender FROM contact_messages WHERE $where AND email = cm.email ORDER BY created_at DESC LIMIT 1) AS last_sender,
                     MAX(cm.created_at) AS last_created_at,

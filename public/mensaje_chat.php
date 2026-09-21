@@ -3,37 +3,51 @@ require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/ContactMessage.php';
 requireLogin();
 
-$email = trim($_GET['email'] ?? '');
 $source = $_GET['source'] ?? 'live_chat';
 
 if (!in_array($source, ['live_chat', 'catalog_chat'], true)) {
     $source = 'live_chat';
 }
 
-if ($email === '') {
+// catalog_chat conversations are keyed by an anonymous per-browser token (no
+// email is collected); live_chat (tech support) is still keyed by email and
+// is global, not scoped to a tenant.
+$keyedByToken = $source === 'catalog_chat';
+$key = trim($keyedByToken ? ($_GET['token'] ?? '') : ($_GET['email'] ?? ''));
+$scopeTenantId = $keyedByToken ? currentTenantId() : null;
+
+if ($key === '') {
     header('Location: ' . BASE_URL . '/mensajes.php');
     exit;
 }
 
-// catalog_chat conversations belong to a specific tenant; live_chat (tech
-// support) is global, so no tenant is enforced there.
-$scopeTenantId = $source === 'catalog_chat' ? currentTenantId() : null;
-
-ContactMessage::markConversationRead($source, $email, $scopeTenantId);
-$messages = ContactMessage::conversationByEmail($source, $email, $scopeTenantId);
+if ($keyedByToken) {
+    ContactMessage::markConversationReadByToken($source, $key, $scopeTenantId);
+    $messages = ContactMessage::conversationByToken($source, $key, $scopeTenantId);
+} else {
+    ContactMessage::markConversationRead($source, $key, $scopeTenantId);
+    $messages = ContactMessage::conversationByEmail($source, $key, $scopeTenantId);
+}
 
 require_once __DIR__ . '/../includes/header.php';
 
-$latest = $messages ? end($messages) : null;
-$title = $source === 'catalog_chat' ? 'Chat de catálogo con' : 'Chat de soporte con';
+// Use the visitor's own latest message for the header's name/phone, not
+// whichever message came last (which could be the admin's own reply).
+$visitorMessages = array_values(array_filter($messages, fn ($m) => $m['sender'] === 'visitor'));
+$latest = $visitorMessages ? end($visitorMessages) : null;
+$title = $keyedByToken ? 'Chat de catálogo con' : 'Chat de soporte con';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h3 fw-bold mb-1"><?= $title ?> <?= htmlspecialchars($latest['name'] ?? $email) ?></h1>
+        <h1 class="h3 fw-bold mb-1"><?= $title ?> <?= htmlspecialchars($latest['name'] ?? ($keyedByToken ? 'Cliente del catálogo' : $key)) ?></h1>
         <p class="text-secondary mb-0">
-            <?= htmlspecialchars($email) ?>
-            <?php if (!empty($latest['phone'])): ?> · <?= htmlspecialchars($latest['phone']) ?><?php endif; ?>
+            <?php if ($keyedByToken): ?>
+                <?= htmlspecialchars($latest['phone'] ?? 'Sin teléfono') ?>
+            <?php else: ?>
+                <?= htmlspecialchars($key) ?>
+                <?php if (!empty($latest['phone'])): ?> · <?= htmlspecialchars($latest['phone']) ?><?php endif; ?>
+            <?php endif; ?>
         </p>
     </div>
     <a href="<?= BASE_URL ?>/mensajes.php" class="btn btn-outline-secondary rounded-pill px-4">Volver</a>
@@ -43,7 +57,7 @@ $title = $source === 'catalog_chat' ? 'Chat de catálogo con' : 'Chat de soporte
     <div class="alert alert-danger">No se pudo enviar la respuesta. Intentá de nuevo.</div>
 <?php endif; ?>
 
-<?php if ($source === 'catalog_chat' && !$messages && !$scopeTenantId): ?>
+<?php if ($keyedByToken && !$messages && !$scopeTenantId): ?>
     <div class="alert alert-warning">No hay ningún negocio registrado en tu sesión todavía.</div>
 <?php endif; ?>
 
@@ -62,7 +76,7 @@ $title = $source === 'catalog_chat' ? 'Chat de catálogo con' : 'Chat de soporte
         </div>
 
         <form method="POST" action="<?= BASE_URL ?>/process/contact_reply_process.php" id="chatReplyForm">
-            <input type="hidden" name="email" value="<?= htmlspecialchars($email) ?>">
+            <input type="hidden" name="<?= $keyedByToken ? 'token' : 'email' ?>" value="<?= htmlspecialchars($key) ?>">
             <input type="hidden" name="source" value="<?= htmlspecialchars($source) ?>">
             <textarea name="message" id="chatReplyMessage" rows="3" class="form-control mb-2" placeholder="Escribí tu respuesta..." required></textarea>
             <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">Responder</button>
