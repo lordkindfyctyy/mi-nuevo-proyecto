@@ -7,35 +7,126 @@
 <style>
     .catalog-chat-btn {
         position: fixed; left: 1.25rem; bottom: 1.25rem; z-index: 20;
-        width: 3.5rem; height: 3.5rem; border-radius: 50%; border: none;
-        background: linear-gradient(135deg, #00b28f, #009677); color: #fff;
-        display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.2); cursor: pointer;
+        width: 3.75rem; height: 3.75rem; border-radius: 50%; border: none;
+        background: linear-gradient(135deg, #00cfa8, #00997e); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 1.55rem;
+        box-shadow: 0 .6rem 1.5rem rgba(0, 153, 126, .38); cursor: pointer;
+        transition: transform .15s ease, box-shadow .15s ease;
     }
+    .catalog-chat-btn:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 .85rem 1.75rem rgba(0, 153, 126, .45); }
+    .catalog-chat-btn:active { transform: translateY(0) scale(.98); }
+
     .catalog-chat-panel {
-        position: fixed; left: 1.25rem; bottom: 5.25rem; z-index: 21;
-        width: 320px; max-width: calc(100vw - 2rem); max-height: calc(100vh - 8rem);
-        background: #fff; border-radius: 1rem; box-shadow: 0 1.5rem 3rem rgba(0,0,0,.18);
+        position: fixed; left: 1.25rem; bottom: 5.5rem; z-index: 21;
+        width: 350px; max-width: calc(100vw - 2rem); max-height: calc(100vh - 8rem);
+        background: #fff; border-radius: 1.25rem; box-shadow: 0 1.75rem 4rem rgba(15, 23, 42, .22);
         overflow: hidden; display: flex; flex-direction: column;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     }
+    @keyframes catalog-chat-pop-in {
+        from { opacity: 0; transform: translateY(14px) scale(.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .catalog-chat-panel:not([hidden]) { animation: catalog-chat-pop-in .2s cubic-bezier(.2, .8, .3, 1); }
+
     .catalog-chat-header {
-        background: linear-gradient(135deg, #00b28f, #009677); color: #fff;
-        padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem;
+        background: linear-gradient(135deg, #00cfa8, #00997e); color: #fff;
+        padding: 1.1rem 1.25rem; display: flex; align-items: center; gap: .75rem;
     }
-    .catalog-chat-status { font-size: .8rem; color: rgba(255,255,255,.9); display: flex; align-items: center; gap: .4rem; margin: 0; }
-    .catalog-chat-dot { width: .5rem; height: .5rem; border-radius: 50%; background: #4ade80; display: inline-block; }
-    .catalog-chat-body { padding: 1.25rem; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
-    .catalog-chat-greeting { font-size: .9rem; margin-bottom: 1rem; }
-    .catalog-chat-messages { display: flex; flex-direction: column; gap: .5rem; max-height: 260px; overflow-y: auto; margin-bottom: .75rem; padding-right: .25rem; }
-    .catalog-chat-bubble { max-width: 85%; padding: .5rem .75rem; border-radius: .9rem; font-size: .85rem; line-height: 1.35; }
-    .catalog-chat-bubble time { display: block; margin-top: .2rem; font-size: .7rem; opacity: .7; }
-    .catalog-chat-bubble-visitor { align-self: flex-end; background: #00b28f; color: #fff; border-bottom-right-radius: .25rem; }
-    .catalog-chat-bubble-admin { align-self: flex-start; background: #f1f2f4; color: #1f2937; border: 1px solid #e5e7eb; border-bottom-left-radius: .25rem; }
-    .catalog-chat-feedback { margin-top: .75rem; font-size: .85rem; border-radius: .5rem; padding: .6rem .75rem; }
-    .catalog-chat-feedback-success { background: rgba(0,178,143,.12); color: #009677; }
-    .catalog-chat-feedback-error { background: rgba(220,53,69,.12); color: #b02a37; }
+    .catalog-chat-avatar {
+        width: 2.5rem; height: 2.5rem; border-radius: 50%; flex-shrink: 0;
+        background: rgba(255, 255, 255, .18); border: 1.5px solid rgba(255, 255, 255, .55);
+        display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+    }
+    .catalog-chat-header-text { flex: 1; min-width: 0; }
+    .catalog-chat-header-text h2 { font-size: .98rem; letter-spacing: -.01em; }
+    .catalog-chat-status { font-size: .78rem; color: rgba(255, 255, 255, .92); display: flex; align-items: center; gap: .4rem; margin: 0; }
+    .catalog-chat-dot {
+        width: .45rem; height: .45rem; border-radius: 50%; background: #baffde; display: inline-block;
+        box-shadow: 0 0 0 rgba(186, 255, 222, .6); animation: catalog-chat-pulse 2s infinite;
+    }
+    @keyframes catalog-chat-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(186, 255, 222, .55); }
+        70% { box-shadow: 0 0 0 .4rem rgba(186, 255, 222, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(186, 255, 222, 0); }
+    }
+    .catalog-chat-close {
+        margin-left: auto; flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 50%; border: none;
+        background: rgba(255, 255, 255, .16); color: #fff; display: flex; align-items: center; justify-content: center;
+        font-size: .95rem; cursor: pointer; transition: background .15s ease;
+    }
+    .catalog-chat-close:hover { background: rgba(255, 255, 255, .28); }
+
+    .catalog-chat-body { padding: 1.1rem 1.1rem .9rem; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; background: #fafbfc; }
+
+    .catalog-chat-greeting-bubble {
+        align-self: flex-start; max-width: 92%; background: #fff; border: 1px solid #e9ebee;
+        border-radius: 1rem; border-bottom-left-radius: .3rem; padding: .65rem .85rem;
+        font-size: .86rem; line-height: 1.45; color: #374151; box-shadow: 0 .1rem .35rem rgba(15, 23, 42, .04);
+        margin-bottom: .9rem;
+    }
+
+    .catalog-chat-identify-form { display: flex; flex-direction: column; gap: .6rem; }
+    .catalog-chat-field { position: relative; }
+    .catalog-chat-field i {
+        position: absolute; left: .8rem; top: 50%; transform: translateY(-50%);
+        color: #9aa3af; font-size: .9rem; pointer-events: none;
+    }
+    .catalog-chat-field input {
+        width: 100%; padding: .6rem .75rem .6rem 2.15rem; border: 1px solid #e0e3e8; border-radius: .7rem;
+        font-size: .88rem; background: #fff; transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .catalog-chat-field input:focus {
+        outline: none; border-color: #00b28f; box-shadow: 0 0 0 .18rem rgba(0, 178, 143, .14);
+    }
+    .catalog-chat-identify-submit {
+        margin-top: .2rem; border: none; border-radius: .75rem; padding: .65rem 1rem;
+        background: linear-gradient(135deg, #00cfa8, #00997e); color: #fff; font-weight: 600; font-size: .9rem;
+        cursor: pointer; transition: filter .15s ease;
+    }
+    .catalog-chat-identify-submit:hover { filter: brightness(1.05); }
+
+    .catalog-chat-messages { display: flex; flex-direction: column; gap: .55rem; max-height: 280px; overflow-y: auto; margin-bottom: .75rem; padding-right: .15rem; }
+    .catalog-chat-bubble {
+        max-width: 84%; padding: .55rem .8rem; border-radius: 1.05rem; font-size: .87rem; line-height: 1.4;
+        box-shadow: 0 .1rem .3rem rgba(15, 23, 42, .05); word-wrap: break-word;
+    }
+    .catalog-chat-bubble time { display: block; margin-top: .25rem; font-size: .68rem; opacity: .72; }
+    .catalog-chat-bubble-visitor {
+        align-self: flex-end; background: linear-gradient(135deg, #00cfa8, #00997e); color: #fff;
+        border-bottom-right-radius: .3rem;
+    }
+    .catalog-chat-bubble-admin {
+        align-self: flex-start; background: #fff; color: #1f2937; border: 1px solid #e9ebee;
+        border-bottom-left-radius: .3rem;
+    }
+
+    .catalog-chat-input-row {
+        display: flex; align-items: flex-end; gap: .5rem; background: #fff; border: 1px solid #e0e3e8;
+        border-radius: 1.25rem; padding: .35rem .4rem .35rem .9rem; transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .catalog-chat-input-row:focus-within { border-color: #00b28f; box-shadow: 0 0 0 .18rem rgba(0, 178, 143, .14); }
+    .catalog-chat-input-row textarea {
+        flex: 1; border: none; outline: none; resize: none; font: inherit; font-size: .87rem;
+        padding: .4rem 0; max-height: 4.5rem; background: transparent;
+    }
+    .catalog-chat-send-btn {
+        flex-shrink: 0; width: 2.15rem; height: 2.15rem; border-radius: 50%; border: none;
+        background: linear-gradient(135deg, #00cfa8, #00997e); color: #fff; display: flex; align-items: center;
+        justify-content: center; font-size: .95rem; cursor: pointer; transition: filter .15s ease, transform .1s ease;
+    }
+    .catalog-chat-send-btn:hover { filter: brightness(1.05); }
+    .catalog-chat-send-btn:active { transform: scale(.92); }
+    .catalog-chat-send-btn:disabled { opacity: .55; cursor: default; }
+
+    .catalog-chat-feedback { margin-top: .7rem; font-size: .82rem; border-radius: .6rem; padding: .55rem .75rem; }
+    .catalog-chat-feedback-success { background: rgba(0, 178, 143, .12); color: #00806a; }
+    .catalog-chat-feedback-error { background: rgba(220, 53, 69, .12); color: #b02a37; }
+
+    .catalog-chat-footer { text-align: center; font-size: .68rem; color: #9aa3af; padding: .55rem 0 .1rem; }
+
     @media (max-width: 420px) {
-        .catalog-chat-panel { left: 1rem; right: 1rem; width: auto; bottom: 5rem; }
+        .catalog-chat-panel { left: .75rem; right: .75rem; width: auto; bottom: 5.25rem; max-height: calc(100vh - 7rem); }
         .catalog-chat-btn { left: 1rem; bottom: 1rem; }
     }
 </style>
@@ -47,32 +138,43 @@
 
     <div id="catalogChatPanel" class="catalog-chat-panel" hidden>
         <div class="catalog-chat-header">
-            <div>
-                <h2 class="h6 fw-bold mb-1">Hablá con el vendedor</h2>
+            <div class="catalog-chat-avatar"><i class="bi bi-shop"></i></div>
+            <div class="catalog-chat-header-text">
+                <h2 class="fw-bold mb-1">Hablá con el vendedor</h2>
                 <p class="catalog-chat-status"><span class="catalog-chat-dot"></span>Respondemos en minutos</p>
             </div>
-            <button type="button" id="catalogChatClose" class="btn-close btn-close-white" aria-label="Cerrar"></button>
+            <button type="button" id="catalogChatClose" class="catalog-chat-close" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
         </div>
 
         <div class="catalog-chat-body">
-            <p class="catalog-chat-greeting">¡Hola! 👋 ¿Tenés dudas sobre algún producto o querés hacer un pedido especial? Escribinos.</p>
+            <div class="catalog-chat-greeting-bubble">¡Hola! 👋 ¿Tenés dudas sobre algún producto o querés hacer un pedido especial? Escribinos.</div>
 
-            <form id="catalogChatIdentifyForm">
-                <input type="text" id="catalogChatName" class="form-control mb-2" placeholder="Nombre" required>
-                <input type="email" id="catalogChatEmail" class="form-control mb-2" placeholder="Email" required>
-                <input type="tel" id="catalogChatPhone" class="form-control mb-2" placeholder="Celular" required>
-                <button type="submit" class="btn btn-primary w-100 fw-semibold">Comenzar chat</button>
+            <form id="catalogChatIdentifyForm" class="catalog-chat-identify-form">
+                <div class="catalog-chat-field">
+                    <i class="bi bi-person"></i>
+                    <input type="text" id="catalogChatName" placeholder="Nombre" required>
+                </div>
+                <div class="catalog-chat-field">
+                    <i class="bi bi-envelope"></i>
+                    <input type="email" id="catalogChatEmail" placeholder="Email" required>
+                </div>
+                <div class="catalog-chat-field">
+                    <i class="bi bi-telephone"></i>
+                    <input type="tel" id="catalogChatPhone" placeholder="Celular" required>
+                </div>
+                <button type="submit" class="catalog-chat-identify-submit">Comenzar chat</button>
             </form>
 
             <div id="catalogChatConversation" hidden>
                 <div id="catalogChatMessages" class="catalog-chat-messages"></div>
-                <form id="catalogChatForm">
-                    <textarea id="catalogChatMessage" rows="2" class="form-control mb-2" placeholder="Escribí tu consulta..." required></textarea>
-                    <button type="submit" class="btn btn-primary w-100 fw-semibold">Enviar consulta</button>
+                <form id="catalogChatForm" class="catalog-chat-input-row">
+                    <textarea id="catalogChatMessage" rows="1" placeholder="Escribí tu mensaje..." required></textarea>
+                    <button type="submit" class="catalog-chat-send-btn" aria-label="Enviar"><i class="bi bi-send-fill"></i></button>
                 </form>
             </div>
 
             <div id="catalogChatFeedback" class="catalog-chat-feedback" hidden></div>
+            <p class="catalog-chat-footer">Chat seguro · Powered by SixSeven</p>
         </div>
     </div>
 </div>
@@ -210,6 +312,13 @@
     });
 
     closeBtn.addEventListener('click', closePanel);
+
+    messageInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            form.requestSubmit();
+        }
+    });
 
     identifyForm.addEventListener('submit', function (e) {
         e.preventDefault();
