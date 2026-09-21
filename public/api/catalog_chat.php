@@ -9,13 +9,18 @@ header('Content-Type: application/json; charset=utf-8');
  * Resolves the caller's identity for the public catalog chat.
  *
  * Always anonymous: the tenant is re-derived from the catalog's own public
- * token (never trusted from a raw client-supplied tenant id), and the
- * visitor must prove ownership of an existing conversation with the token
- * handed back on their first message.
+ * token (never trusted from a raw client-supplied tenant id). Reading an
+ * existing conversation ($requireTokenForExisting = true, used for GET)
+ * requires the token handed back on that email's earlier messages, so a
+ * stranger can't read someone else's chat just by knowing their address.
+ * Sending a message never requires it: a customer writing from a new
+ * device/browser (lost localStorage, cleared data, etc.) must still be able
+ * to get a message through, even if they can't yet prove ownership of the
+ * older history.
  *
  * @return array{ok:true,tenantId:int,name:string,email:string,phone:string,token:string}|array{ok:false,error:string,code:int}
  */
-function resolveCatalogChatIdentity(): array
+function resolveCatalogChatIdentity(bool $requireTokenForExisting): array
 {
     $catalogToken = trim($_REQUEST['t'] ?? '');
     $tenant = $catalogToken !== '' ? Tenant::findByPublicToken($catalogToken) : null;
@@ -35,7 +40,7 @@ function resolveCatalogChatIdentity(): array
 
     $tenantId = (int) $tenant['id'];
 
-    if (ContactMessage::countByEmail('catalog_chat', $email, $tenantId) > 0) {
+    if ($requireTokenForExisting && ContactMessage::countByEmail('catalog_chat', $email, $tenantId) > 0) {
         if ($token === '' || !ContactMessage::tokenMatchesEmail('catalog_chat', $email, $token)) {
             return ['ok' => false, 'error' => 'No pudimos verificar tu conversación. Iniciá un chat nuevo.', 'code' => 403];
         }
@@ -45,7 +50,7 @@ function resolveCatalogChatIdentity(): array
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $identity = resolveCatalogChatIdentity();
+    $identity = resolveCatalogChatIdentity(true);
 
     if (!$identity['ok']) {
         // A visitor who hasn't identified yet isn't an error, just an empty chat.
@@ -79,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $identity = resolveCatalogChatIdentity();
+    $identity = resolveCatalogChatIdentity(false);
 
     if (!$identity['ok']) {
         http_response_code($identity['code']);
@@ -88,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $token = $identity['token'];
-    if ($token === '' || ContactMessage::countByEmail('catalog_chat', $identity['email'], $identity['tenantId']) === 0) {
+    if ($token === '' || !ContactMessage::tokenMatchesEmail('catalog_chat', $identity['email'], $token)) {
         $token = bin2hex(random_bytes(16));
     }
 
