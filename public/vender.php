@@ -531,6 +531,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return { base: trimmed, variant: '' };
     }
 
+    // Converts a presentation label ("3k", "1,5 kilos", "X15 Kg", "12x85gr",
+    // "suelto") into a comparable weight in grams, so the variant picker can
+    // sort presentations from lightest to heaviest. "suelto" (sold loose, no
+    // fixed package size) and anything that couldn't be parsed sort first,
+    // ahead of every known weight.
+    const WEIGHT_VALUE_RE = /^x?\s*(\d+(?:[.,]\d+)?)\s*(?:x\s*(\d+(?:[.,]\d+)?)\s*)?(kgs?|kilos?|k|grs?|gramos?|g|mls?|ml|lts?|litros?|l)\.?$/i;
+
+    function presentationWeightGrams(variantLabel) {
+        const label = (variantLabel || '').trim().toLowerCase();
+        if (label === '' || /^suelto$|^a\s*granel$/.test(label)) return 0;
+
+        const match = label.match(WEIGHT_VALUE_RE);
+        if (!match) return 0;
+
+        const primary = parseFloat(match[1].replace(',', '.'));
+        const packCount = match[2] ? parseFloat(match[2].replace(',', '.')) : 1;
+        const gramsPerUnit = /^(kgs?|kilos?|k)\.?$/.test(match[3]) || /^(lts?|litros?|l)\.?$/.test(match[3]) ? 1000 : 1;
+
+        return primary * packCount * gramsPerUnit;
+    }
+
     const productIdToGroup = new Map();
     (function buildVariantGroups() {
         const groupsByKey = new Map();
@@ -699,7 +720,13 @@ document.addEventListener('DOMContentLoaded', () => {
         variantPickerLabel.textContent = group.label;
         variantPickerList.innerHTML = '';
 
-        group.members.forEach((product) => {
+        const sortedMembers = [...group.members].sort((a, b) => {
+            const weightA = presentationWeightGrams(splitPresentation(a.name).variant);
+            const weightB = presentationWeightGrams(splitPresentation(b.name).variant);
+            return weightA - weightB;
+        });
+
+        sortedMembers.forEach((product) => {
             const remaining = availableStock(product);
             const outOfStock = remaining <= 0;
             const { variant } = splitPresentation(product.name);
