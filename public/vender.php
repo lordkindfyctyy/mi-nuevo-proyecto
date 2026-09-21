@@ -323,6 +323,20 @@ function pos_render_nav(array $items, string $currentPage): void
         </div>
     </div>
 
+    <div class="modal fade" id="variantPickerModal" tabindex="-1" aria-labelledby="variantPickerModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="variantPickerModalLabel">Elegí una presentación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="variant-picker-list" class="d-flex flex-column gap-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php require_once __DIR__ . '/../includes/settings_modal.php'; ?>
     <?php require_once __DIR__ . '/../includes/catalog_chat_admin_widget.php'; ?>
 
@@ -497,6 +511,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const discountTypeInput = document.getElementById('discount-type-input');
     const discountValueInputHidden = document.getElementById('discount-value-input');
 
+    const variantPickerModalEl = document.getElementById('variantPickerModal');
+    const variantPickerModal = variantPickerModalEl ? new bootstrap.Modal(variantPickerModalEl) : null;
+    const variantPickerLabel = document.getElementById('variantPickerModalLabel');
+    const variantPickerList = document.getElementById('variant-picker-list');
+
+    // Products that are really just different sizes/presentations of the
+    // same item (e.g. "Royal Canin Mini Adulto 3k" / "... suelto") share a
+    // base name once the trailing weight/"suelto" is stripped off. Grouping
+    // them lets the sale grid show one card instead of one per size.
+    const PRESENTATION_RE = /^(.*?)[\s-]+((?:x\s*)?\d+(?:[.,]\d+)?\s*(?:x\s*\d+(?:[.,]\d+)?\s*)?(?:kgs?|kilos?|k|grs?|gramos?|g|mls?|ml|lts?|litros?|l)\.?|suelto|a\s*granel)$/i;
+
+    function splitPresentation(name) {
+        const trimmed = (name || '').trim();
+        const match = trimmed.match(PRESENTATION_RE);
+        if (match && match[1].trim().length >= 3) {
+            return { base: match[1].trim(), variant: match[2].trim() };
+        }
+        return { base: trimmed, variant: '' };
+    }
+
+    const productIdToGroup = new Map();
+    (function buildVariantGroups() {
+        const groupsByKey = new Map();
+        products.forEach((p) => {
+            const { base } = splitPresentation(p.name);
+            const key = base.toLowerCase().replace(/\s+/g, ' ');
+            if (!groupsByKey.has(key)) groupsByKey.set(key, { label: base, members: [] });
+            groupsByKey.get(key).members.push(p);
+        });
+        groupsByKey.forEach((group) => {
+            if (group.members.length > 1) {
+                group.members.forEach((p) => productIdToGroup.set(p.id, group));
+            }
+        });
+    })();
+
     function formatMoney(value) {
         return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -581,27 +631,99 @@ document.addEventListener('DOMContentLoaded', () => {
         productGridEl.innerHTML = '';
         noResultsEl.hidden = filtered.length > 0;
 
+        const renderedGroups = new Set();
+
         filtered.forEach((product) => {
+            const group = productIdToGroup.get(product.id);
+            if (group) {
+                if (renderedGroups.has(group)) return;
+                renderedGroups.add(group);
+                renderGroupCard(group);
+                return;
+            }
+            renderSingleCard(product);
+        });
+    }
+
+    function renderSingleCard(product) {
+        const remaining = availableStock(product);
+        const outOfStock = remaining <= 0;
+        const card = document.createElement('div');
+        card.className = 'product-card' + (outOfStock ? ' out-of-stock' : '');
+        card.innerHTML = `
+            <div class="product-card-image">
+                ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'} product-stock-badge">${outOfStock ? 'Sin stock' : formatQty(remaining) + ' disp.'}</span>
+            </div>
+            <div class="product-card-body">
+                <div class="product-card-price">${formatMoney(product.price)}</div>
+                <div class="product-card-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
+                <div class="product-card-desc">${escapeHtml(product.sku || product.description || '')}${product.saleUnit === 'weight' ? ' · por peso' : ''}</div>
+            </div>
+        `;
+        if (!outOfStock) {
+            card.addEventListener('click', () => addToCart(product.id));
+        }
+        productGridEl.appendChild(card);
+    }
+
+    function renderGroupCard(group) {
+        const members = group.members;
+        const withImage = members.find((p) => p.image);
+        const prices = members.map((p) => p.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        const priceLabel = minPrice === maxPrice ? formatMoney(minPrice) : `Desde ${formatMoney(minPrice)}`;
+        const anyInStock = members.some((p) => availableStock(p) > 0);
+
+        const card = document.createElement('div');
+        card.className = 'product-card' + (anyInStock ? '' : ' out-of-stock');
+        card.innerHTML = `
+            <div class="product-card-image">
+                ${withImage ? `<img src="${escapeHtml(withImage.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                <span class="badge bg-primary product-stock-badge">${members.length} presentaciones</span>
+            </div>
+            <div class="product-card-body">
+                <div class="product-card-price">${priceLabel}</div>
+                <div class="product-card-name" title="${escapeHtml(group.label)}">${escapeHtml(group.label)}</div>
+                <div class="product-card-desc">Elegí una presentación</div>
+            </div>
+        `;
+        card.addEventListener('click', () => openVariantPicker(group));
+        productGridEl.appendChild(card);
+    }
+
+    function openVariantPicker(group) {
+        if (!variantPickerModal) return;
+
+        variantPickerLabel.textContent = group.label;
+        variantPickerList.innerHTML = '';
+
+        group.members.forEach((product) => {
             const remaining = availableStock(product);
             const outOfStock = remaining <= 0;
-            const card = document.createElement('div');
-            card.className = 'product-card' + (outOfStock ? ' out-of-stock' : '');
-            card.innerHTML = `
-                <div class="product-card-image">
-                    ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
-                    <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'} product-stock-badge">${outOfStock ? 'Sin stock' : formatQty(remaining) + ' disp.'}</span>
-                </div>
-                <div class="product-card-body">
-                    <div class="product-card-price">${formatMoney(product.price)}</div>
-                    <div class="product-card-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
-                    <div class="product-card-desc">${escapeHtml(product.sku || product.description || '')}${product.saleUnit === 'weight' ? ' · por peso' : ''}</div>
-                </div>
+            const { variant } = splitPresentation(product.name);
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'btn btn-outline-secondary d-flex justify-content-between align-items-center text-start py-2'
+                + (outOfStock ? ' disabled' : '');
+            row.innerHTML = `
+                <span class="fw-semibold">${escapeHtml(variant || product.name)}</span>
+                <span class="text-end d-flex align-items-center gap-2">
+                    <span class="fw-semibold">${formatMoney(product.price)}</span>
+                    <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'}">${outOfStock ? 'Sin stock' : formatQty(remaining) + ' disp.'}</span>
+                </span>
             `;
             if (!outOfStock) {
-                card.addEventListener('click', () => addToCart(product.id));
+                row.addEventListener('click', () => {
+                    addToCart(product.id);
+                    variantPickerModal.hide();
+                });
             }
-            productGridEl.appendChild(card);
+            variantPickerList.appendChild(row);
         });
+
+        variantPickerModal.show();
     }
 
     function addToCart(id, qty = 1) {
