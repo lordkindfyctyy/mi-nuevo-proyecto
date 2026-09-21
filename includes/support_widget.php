@@ -124,6 +124,13 @@
 
     closeBtn.addEventListener('click', closePanel);
 
+    messageInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            form.requestSubmit();
+        }
+    });
+
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         var message = messageInput.value.trim();

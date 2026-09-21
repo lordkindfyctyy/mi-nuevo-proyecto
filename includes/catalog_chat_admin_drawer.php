@@ -184,6 +184,13 @@
 
     backBtn.addEventListener('click', backToList);
 
+    replyInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            replyForm.requestSubmit();
+        }
+    });
+
     replyForm.addEventListener('submit', function (e) {
         e.preventDefault();
         var message = replyInput.value.trim();

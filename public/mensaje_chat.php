@@ -61,10 +61,10 @@ $title = $source === 'catalog_chat' ? 'Chat de catálogo con' : 'Chat de soporte
             <?php endif; ?>
         </div>
 
-        <form method="POST" action="<?= BASE_URL ?>/process/contact_reply_process.php">
+        <form method="POST" action="<?= BASE_URL ?>/process/contact_reply_process.php" id="chatReplyForm">
             <input type="hidden" name="email" value="<?= htmlspecialchars($email) ?>">
             <input type="hidden" name="source" value="<?= htmlspecialchars($source) ?>">
-            <textarea name="message" rows="3" class="form-control mb-2" placeholder="Escribí tu respuesta..." required></textarea>
+            <textarea name="message" id="chatReplyMessage" rows="3" class="form-control mb-2" placeholder="Escribí tu respuesta..." required></textarea>
             <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">Responder</button>
         </form>
     </div>
@@ -77,5 +77,14 @@ $title = $source === 'catalog_chat' ? 'Chat de catálogo con' : 'Chat de soporte
 .chat-bubble-visitor { align-self: flex-start; background: var(--color-bg); border: 1px solid var(--color-border); border-bottom-left-radius: .25rem; }
 .chat-bubble-admin { align-self: flex-end; background: var(--color-primary); color: #fff; border-bottom-right-radius: .25rem; }
 </style>
+
+<script>
+document.getElementById('chatReplyMessage').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chatReplyForm').requestSubmit();
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
