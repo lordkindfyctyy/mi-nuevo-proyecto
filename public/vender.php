@@ -41,7 +41,6 @@ $currentPage = basename($_SERVER['SCRIPT_NAME']);
 
 $navItems = [
     ['label' => 'Compartir catálogo', 'icon' => 'bi-share', 'action' => 'share'],
-    ['label' => 'Chat Catálogo', 'icon' => 'bi-chat-dots-fill', 'action' => 'catalog_chat'],
     ['label' => 'Vender', 'href' => BASE_URL . '/vender.php', 'icon' => 'bi-cart3', 'match' => 'vender.php'],
     ['label' => 'Ventas', 'href' => BASE_URL . '/ventas.php', 'icon' => 'bi-receipt', 'match' => 'ventas.php'],
     ['label' => 'Balance', 'href' => BASE_URL . '/reportes.php', 'icon' => 'bi-bar-chart-line', 'match' => 'reportes.php'],
@@ -56,14 +55,6 @@ function pos_render_nav(array $items, string $currentPage): void
         if (($item['action'] ?? null) === 'share') {
             echo '<button type="button" class="pos-nav-link border-0 bg-transparent text-start w-100" data-bs-toggle="modal" data-bs-target="#shareCatalogModal">';
             echo '<i class="bi ' . htmlspecialchars($item['icon']) . '"></i> ' . htmlspecialchars($item['label']);
-            echo '</button>';
-            continue;
-        }
-
-        if (($item['action'] ?? null) === 'catalog_chat') {
-            echo '<button type="button" class="pos-nav-link border-0 bg-transparent text-start w-100" data-bs-toggle="offcanvas" data-bs-target="#catalogChatDrawer">';
-            echo '<i class="bi ' . htmlspecialchars($item['icon']) . '"></i> ' . htmlspecialchars($item['label']);
-            echo '<span class="badge rounded-pill bg-danger ms-auto catalog-chat-nav-badge" hidden>0</span>';
             echo '</button>';
             continue;
         }
@@ -333,7 +324,7 @@ function pos_render_nav(array $items, string $currentPage): void
     </div>
 
     <?php require_once __DIR__ . '/../includes/settings_modal.php'; ?>
-    <?php require_once __DIR__ . '/../includes/catalog_chat_admin_drawer.php'; ?>
+    <?php require_once __DIR__ . '/../includes/catalog_chat_admin_widget.php'; ?>
 
     <main class="pos-products">
         <div class="d-flex justify-content-end mb-2">
