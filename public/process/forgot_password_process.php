@@ -21,19 +21,25 @@ $user = filter_var($identifier, FILTER_VALIDATE_EMAIL)
     : User::findByPhoneGlobal($identifier);
 
 // Siempre respondemos igual, exista o no la cuenta, para no revelar qué
-// correos/teléfonos están registrados en el sistema.
-if ($user && $user['status'] === 'active') {
-    $token = PasswordReset::create((int) $user['id']);
-    $resetUrl = BASE_URL . '/reset_password.php?token=' . urlencode($token);
+// correos/teléfonos están registrados en el sistema. Los errores internos
+// (ej. problemas de esquema en la base) se registran en el log del
+// servidor, nunca en la respuesta pública de este endpoint sin login.
+try {
+    if ($user && $user['status'] === 'active') {
+        $token = PasswordReset::create((int) $user['id']);
+        $resetUrl = BASE_URL . '/reset_password.php?token=' . urlencode($token);
 
-    $body = '<p>Hola ' . htmlspecialchars($user['name']) . ',</p>'
-        . '<p>Tu nombre de usuario asociado a esta cuenta es: <strong>' . htmlspecialchars($user['name']) . '</strong> (' . htmlspecialchars($user['email']) . ')</p>'
-        . '<p>Recibimos una solicitud para restablecer tu contraseña en ' . htmlspecialchars(APP_NAME) . '. Si fuiste vos, hacé clic en el siguiente enlace (válido por 1 hora):</p>'
-        . '<p><a href="' . htmlspecialchars($resetUrl) . '">Elegir una nueva contraseña</a></p>'
-        . '<p>Si el enlace no funciona, copiá y pegá esta dirección en tu navegador:<br>' . htmlspecialchars($resetUrl) . '</p>'
-        . '<p>Si no fuiste vos quien lo solicitó, podés ignorar este correo: tu contraseña actual sigue siendo válida.</p>';
+        $body = '<p>Hola ' . htmlspecialchars($user['name']) . ',</p>'
+            . '<p>Tu nombre de usuario asociado a esta cuenta es: <strong>' . htmlspecialchars($user['name']) . '</strong> (' . htmlspecialchars($user['email']) . ')</p>'
+            . '<p>Recibimos una solicitud para restablecer tu contraseña en ' . htmlspecialchars(APP_NAME) . '. Si fuiste vos, hacé clic en el siguiente enlace (válido por 1 hora):</p>'
+            . '<p><a href="' . htmlspecialchars($resetUrl) . '">Elegir una nueva contraseña</a></p>'
+            . '<p>Si el enlace no funciona, copiá y pegá esta dirección en tu navegador:<br>' . htmlspecialchars($resetUrl) . '</p>'
+            . '<p>Si no fuiste vos quien lo solicitó, podés ignorar este correo: tu contraseña actual sigue siendo válida.</p>';
 
-    send_app_mail($user['email'], 'Recuperá tu acceso a ' . APP_NAME, $body);
+        send_app_mail($user['email'], 'Recuperá tu acceso a ' . APP_NAME, $body);
+    }
+} catch (Throwable $e) {
+    error_log('[forgot_password] ' . $e->getMessage());
 }
 
 header('Location: ' . BASE_URL . '/forgot_password.php?sent=1');

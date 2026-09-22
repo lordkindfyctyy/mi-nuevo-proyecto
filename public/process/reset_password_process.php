@@ -29,8 +29,14 @@ if ($password !== $passwordConfirm) {
     exit;
 }
 
-User::update((int) $reset['user_id'], ['password' => $password]);
-PasswordReset::markUsed((int) $reset['id']);
+try {
+    User::update((int) $reset['user_id'], ['password' => $password]);
+    PasswordReset::markUsed((int) $reset['id']);
+} catch (Throwable $e) {
+    error_log('[reset_password] ' . $e->getMessage());
+    header('Location: ' . BASE_URL . '/reset_password.php?token=' . urlencode($token) . '&error=save_failed');
+    exit;
+}
 
 header('Location: ' . BASE_URL . '/login.php?reset=success');
 exit;

@@ -15,6 +15,7 @@ require_once __DIR__ . '/../includes/header.php';
 $errors = [
     'password_short' => 'La contraseña debe tener al menos 6 caracteres.',
     'password_mismatch' => 'Las contraseñas no coinciden.',
+    'save_failed' => 'No pudimos guardar la nueva contraseña. Intentá de nuevo en unos minutos.',
 ];
 ?>
 
