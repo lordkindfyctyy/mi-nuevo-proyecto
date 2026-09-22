@@ -120,6 +120,12 @@ function pos_render_nav(array $items, string $currentPage): void
         .pos-nav-link.active { background: rgba(0, 178, 143, .12); color: var(--color-primary); }
         .pos-nav-link.disabled { color: #9ca3af; }
         .pos-sidebar-footer { padding: .75rem 1rem; border-top: 1px solid var(--color-border); font-size: .85rem; }
+        /* El botón flotante del chat con clientes (catalog-chat-btn) es
+           position:fixed en la esquina inferior izquierda de toda la
+           pantalla, así que en el sidebar de escritorio (que también llega
+           hasta el borde inferior) tapaba el nombre del negocio. Le dejamos
+           el espacio libre. */
+        .pos-sidebar .pos-sidebar-footer { padding-bottom: 5.5rem; }
         .pos-tenant-name { font-size: 1rem; line-height: 1.2; margin-bottom: .1rem; }
 
         .pos-products { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 1rem 1.25rem; }
