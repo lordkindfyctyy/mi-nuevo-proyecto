@@ -26,4 +26,15 @@ return [
     'DB_NAME' => null,      // Ej: 'u123456789_minuevoproyecto'
     'DB_USER' => null,      // Ej: 'u123456789_admin'
     'DB_PASS' => null,
+
+    // SMTP para mails transaccionales (recuperación de contraseña, etc.).
+    // Creá un buzón real en hPanel → Emails (ej. no-reply@tudominio.com) y
+    // completá acá sus datos. Sin SMTP_HOST, la app cae a mail() nativo.
+    'SMTP_HOST' => null,       // Ej: 'smtp.hostinger.com'
+    'SMTP_PORT' => null,       // Ej: '587' (TLS) o '465' (SSL)
+    'SMTP_USER' => null,       // Ej: 'no-reply@tudominio.com'
+    'SMTP_PASS' => null,
+    'SMTP_ENCRYPTION' => null, // 'tls' o 'ssl'
+    'SMTP_FROM_EMAIL' => null, // Por defecto usa SMTP_USER
+    'SMTP_FROM_NAME' => null,  // Por defecto usa APP_NAME
 ];

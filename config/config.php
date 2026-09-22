@@ -113,6 +113,23 @@ if (APP_ENV === 'local') {
 
 define('DB_CHARSET', 'utf8mb4');
 
+/**
+ * SMTP para mails transaccionales (recuperación de contraseña, etc.). Sin
+ * SMTP_HOST configurado, includes/mailer.php cae a mail() nativo (y, si
+ * tampoco funciona esa, deja el mail en el log de errores) — así que en
+ * local, sin configurar nada, el flujo se puede seguir probando igual.
+ * En producción hay que configurar estas variables de entorno (o
+ * config/config.local.php) con los datos de un buzón real del hosting
+ * (ver README_DESPLIEGUE.md).
+ */
+define('SMTP_HOST', app_config($overrides, 'SMTP_HOST', ''));
+define('SMTP_PORT', (int) app_config($overrides, 'SMTP_PORT', '587'));
+define('SMTP_USER', app_config($overrides, 'SMTP_USER', ''));
+define('SMTP_PASS', app_config($overrides, 'SMTP_PASS', ''));
+define('SMTP_ENCRYPTION', app_config($overrides, 'SMTP_ENCRYPTION', 'tls'));
+define('SMTP_FROM_EMAIL', app_config($overrides, 'SMTP_FROM_EMAIL', SMTP_USER));
+define('SMTP_FROM_NAME', app_config($overrides, 'SMTP_FROM_NAME', APP_NAME));
+
 error_reporting(E_ALL);
 ini_set('display_errors', APP_ENV === 'local' ? '1' : '0');
 ini_set('log_errors', '1');

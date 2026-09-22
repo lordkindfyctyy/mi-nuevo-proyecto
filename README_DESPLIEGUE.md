@@ -108,6 +108,19 @@ Repite este `git pull` cada vez que quieras actualizar producción con los últi
 
 > En ambos casos, `config/config.local.php` (si lo usaste en el paso 4) vive fuera del control de git — un `git pull` nunca lo toca ni lo borra.
 
+## 5.1. Configurar el envío de mails (recuperación de contraseña)
+
+La app envía mails transaccionales (recuperación de contraseña) por SMTP autenticado. Sin esto configurado, cae a `mail()` nativo, que en Hostinger suele terminar bloqueado o en spam.
+
+1. En hPanel → **Emails** → creá un buzón en tu dominio, por ejemplo `no-reply@tudominio.com`, con una contraseña.
+2. Configurá estas variables de entorno (hPanel → Avanzado → Variables de entorno) o agregalas a `config/config.local.php` (ver plantilla en `config/config.local.php.example`):
+   - `SMTP_HOST` = `smtp.hostinger.com`
+   - `SMTP_PORT` = `587`
+   - `SMTP_USER` = `no-reply@tudominio.com`
+   - `SMTP_PASS` = la contraseña de ese buzón
+   - `SMTP_ENCRYPTION` = `tls`
+3. Si algún mail falla, el detalle específico de PHPMailer/SMTP queda en el log de errores de PHP (hPanel → Avanzado → Registro de errores de PHP), buscá líneas que empiecen con `[mailer:smtp]`.
+
 ## 6. Verificar el despliegue
 
 1. Entra a `https://tudominio.com` — deberías ver la página de inicio.
