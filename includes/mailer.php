@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../src/lib/PHPMailer/Exception.php';
 require_once __DIR__ . '/../src/lib/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/../src/lib/PHPMailer/SMTP.php';
+require_once __DIR__ . '/debug_log.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
@@ -62,7 +63,7 @@ function send_app_mail_via_smtp(string $to, string $subject, string $htmlBody): 
         // $mail->ErrorInfo trae el mensaje específico de SMTP (auth
         // rechazada, host inalcanzable, etc.), más útil que el genérico
         // de la excepción.
-        error_log('[mailer:smtp] To: ' . $to . ' | ' . $mail->ErrorInfo);
+        app_debug_log('[mailer:smtp] To: ' . $to . ' | Host: ' . SMTP_HOST . ':' . SMTP_PORT . ' | ' . $mail->ErrorInfo);
 
         return false;
     }
@@ -86,7 +87,7 @@ function send_app_mail_via_native(string $to, string $subject, string $htmlBody)
     $sent = @mail($to, $encodedSubject, $htmlBody, $headers);
 
     if (!$sent) {
-        error_log("[mailer:native] No se pudo enviar (o estamos en local sin SMTP/mail configurado). To: $to | Subject: $subject\n$htmlBody");
+        app_debug_log("[mailer:native] No se pudo enviar (o estamos en local sin SMTP/mail configurado). To: $to | Subject: $subject\n$htmlBody");
     }
 
     return $sent;

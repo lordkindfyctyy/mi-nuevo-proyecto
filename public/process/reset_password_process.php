@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/tenant_context.php';
+require_once __DIR__ . '/../../includes/debug_log.php';
 require_once __DIR__ . '/../../src/models/User.php';
 require_once __DIR__ . '/../../src/models/PasswordReset.php';
 
@@ -33,7 +34,7 @@ try {
     User::update((int) $reset['user_id'], ['password' => $password]);
     PasswordReset::markUsed((int) $reset['id']);
 } catch (Throwable $e) {
-    error_log('[reset_password] ' . $e->getMessage());
+    app_debug_log('[reset_password] ' . $e->getMessage());
     header('Location: ' . BASE_URL . '/reset_password.php?token=' . urlencode($token) . '&error=save_failed');
     exit;
 }

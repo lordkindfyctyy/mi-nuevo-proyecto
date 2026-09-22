@@ -1,6 +1,8 @@
 /vendor/
 /uploads/*
 !/uploads/.gitkeep
+/storage/*
+!/storage/.gitkeep
 /public/uploads/*
 !/public/uploads/.gitkeep
 !/public/uploads/.htaccess
