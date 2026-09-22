@@ -210,6 +210,8 @@ sort($brands);
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="3kg">3kg</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="7.5kg">7.5kg</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="15kg">15kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="20kg">20kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="22kg">22kg</button>
             </div>
 
             <div id="customVariantRow" class="d-none align-items-center gap-2 mb-3">
