@@ -21,16 +21,25 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php if (isset($_GET['logout'])): ?>
                     <div class="alert alert-success">Sesión cerrada correctamente.</div>
                 <?php endif; ?>
+                <?php if (isset($_GET['reset'])): ?>
+                    <div class="alert alert-success">Contraseña actualizada. Ya podés iniciar sesión.</div>
+                <?php endif; ?>
 
                 <form method="POST" action="<?= BASE_URL ?>/process/login_process.php">
                     <div class="mb-3">
                         <label for="email" class="form-label">Correo electrónico</label>
                         <input type="email" id="email" name="email" class="form-control" required autofocus>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label for="password" class="form-label">Contraseña</label>
-                        <input type="password" id="password" name="password" class="form-control" required>
+                        <div class="input-group">
+                            <input type="password" id="password" name="password" class="form-control" required>
+                            <button type="button" class="btn btn-outline-secondary password-toggle-btn" tabindex="-1" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
+                    <p class="text-end mb-3">
+                        <a href="<?= BASE_URL ?>/forgot_password.php" class="small">¿Olvidaste tu usuario o contraseña?</a>
+                    </p>
                     <button type="submit" class="btn btn-primary w-100 rounded-pill">Entrar</button>
                 </form>
 

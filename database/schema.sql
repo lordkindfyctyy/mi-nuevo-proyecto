@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
     tenant_id INT UNSIGNED NOT NULL,
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NOT NULL,
+    phone VARCHAR(30) NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('owner', 'admin', 'employee') NOT NULL DEFAULT 'employee',
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
@@ -36,7 +37,21 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_users_tenant_email (tenant_id, email),
     KEY idx_users_tenant (tenant_id),
+    KEY idx_users_phone (phone),
     CONSTRAINT fk_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tokens de recuperación de contraseña (un token de un solo uso por solicitud)
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_password_resets_user (user_id),
+    KEY idx_password_resets_token_hash (token_hash),
+    CONSTRAINT fk_password_resets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Productos

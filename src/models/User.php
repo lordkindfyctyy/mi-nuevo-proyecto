@@ -53,6 +53,15 @@ class User
         return $row ?: null;
     }
 
+    public static function findByPhoneGlobal(string $phone): ?array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM users WHERE phone = :phone LIMIT 1');
+        $stmt->execute(['phone' => $phone]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
     public static function allByTenant(int $tenantId): array
     {
         $stmt = self::db()->prepare('SELECT * FROM users WHERE tenant_id = :tenant_id ORDER BY name');
@@ -71,7 +80,7 @@ class User
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'email', 'role', 'status'] as $field) {
+        foreach (['name', 'email', 'phone', 'role', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];

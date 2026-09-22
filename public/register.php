@@ -61,11 +61,17 @@ $errors = [
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label for="password" class="form-label">Contraseña</label>
-                            <input type="password" id="password" name="password" class="form-control" required minlength="6">
+                            <div class="input-group">
+                                <input type="password" id="password" name="password" class="form-control" required minlength="6">
+                                <button type="button" class="btn btn-outline-secondary password-toggle-btn" tabindex="-1" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label for="password_confirm" class="form-label">Confirmar contraseña</label>
-                            <input type="password" id="password_confirm" name="password_confirm" class="form-control" required minlength="6">
+                            <div class="input-group">
+                                <input type="password" id="password_confirm" name="password_confirm" class="form-control" required minlength="6">
+                                <button type="button" class="btn btn-outline-secondary password-toggle-btn" tabindex="-1" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                            </div>
                         </div>
                     </div>
 

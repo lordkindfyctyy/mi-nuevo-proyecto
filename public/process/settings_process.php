@@ -27,10 +27,32 @@ $tenantPhone = trim($_POST['tenant_phone'] ?? '');
 $tenantAddress = trim($_POST['tenant_address'] ?? '');
 $tenantTaxId = trim($_POST['tenant_tax_id'] ?? '');
 $userName = trim($_POST['user_name'] ?? '');
+$userPhone = trim($_POST['user_phone'] ?? '');
+
+$currentPassword = $_POST['current_password'] ?? '';
+$newPassword = $_POST['new_password'] ?? '';
+$newPasswordConfirm = $_POST['new_password_confirm'] ?? '';
+$wantsPasswordChange = $currentPassword !== '' || $newPassword !== '' || $newPasswordConfirm !== '';
 
 if ($tenantName === '' || $userName === '') {
     header('Location: ' . BASE_URL . $redirectPath . '?settings_error=1');
     exit;
+}
+
+if ($wantsPasswordChange) {
+    $user = User::find($userId);
+    if (!$user || !User::verifyPassword($user, $currentPassword)) {
+        header('Location: ' . BASE_URL . $redirectPath . '?settings_error=password_current');
+        exit;
+    }
+    if (strlen($newPassword) < 6) {
+        header('Location: ' . BASE_URL . $redirectPath . '?settings_error=password_short');
+        exit;
+    }
+    if ($newPassword !== $newPasswordConfirm) {
+        header('Location: ' . BASE_URL . $redirectPath . '?settings_error=password_mismatch');
+        exit;
+    }
 }
 
 try {
@@ -40,7 +62,12 @@ try {
         'address' => $tenantAddress !== '' ? $tenantAddress : null,
         'tax_id' => $tenantTaxId !== '' ? $tenantTaxId : null,
     ]);
-    User::update($userId, ['name' => $userName]);
+
+    $userUpdate = ['name' => $userName, 'phone' => $userPhone !== '' ? $userPhone : null];
+    if ($wantsPasswordChange) {
+        $userUpdate['password'] = $newPassword;
+    }
+    User::update($userId, $userUpdate);
 
     // El sidebar/navbar muestran el nombre del comercio y del usuario desde
     // la sesión (no los vuelven a leer de la base en cada request), así que
