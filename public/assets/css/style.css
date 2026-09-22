@@ -55,6 +55,15 @@
 .brand-logo-sm .brand-mark { width: 2.04rem; height: 2.04rem; font-size: .82rem; border-radius: .6rem; }
 .brand-logo-sm .brand-word { font-size: 1.14rem; }
 
+.tenant-name-display {
+    font-size: 1.05rem;
+    line-height: 1.15;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .settings-gear-btn {
     width: 2.4rem;
     height: 2.4rem;

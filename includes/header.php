@@ -75,10 +75,12 @@ if (isLoggedIn()) {
                         <?php endif; ?>
                     </ul>
                     <?php if (isLoggedIn()): ?>
-                        <span class="navbar-text text-secondary small me-lg-3">
-                            <?= htmlspecialchars(currentUserName() ?? '') ?>
-                            <?php if (currentTenantName()): ?> · <?= htmlspecialchars(currentTenantName()) ?><?php endif; ?>
-                        </span>
+                        <div class="navbar-text text-center me-lg-3 lh-sm">
+                            <?php if (currentTenantName()): ?>
+                                <div class="fw-bold text-dark tenant-name-display"><?= htmlspecialchars(currentTenantName()) ?></div>
+                            <?php endif; ?>
+                            <div class="text-secondary small"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
+                        </div>
                         <button type="button" class="btn btn-outline-secondary rounded-circle settings-gear-btn me-lg-2" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Ajustes" aria-label="Ajustes">
                             <i class="bi bi-gear"></i>
                         </button>

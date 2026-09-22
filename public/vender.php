@@ -120,6 +120,7 @@ function pos_render_nav(array $items, string $currentPage): void
         .pos-nav-link.active { background: rgba(0, 178, 143, .12); color: var(--color-primary); }
         .pos-nav-link.disabled { color: #9ca3af; }
         .pos-sidebar-footer { padding: .75rem 1rem; border-top: 1px solid var(--color-border); font-size: .85rem; }
+        .pos-tenant-name { font-size: 1rem; line-height: 1.2; margin-bottom: .1rem; }
 
         .pos-products { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 1rem 1.25rem; }
         @media (min-width: 992px) { .pos-products { overflow-y: auto; } }
@@ -228,9 +229,9 @@ function pos_render_nav(array $items, string $currentPage): void
             <span class="brand-word"><?= APP_NAME ?></span>
         </a>
         <nav class="pos-nav"><?php pos_render_nav($navItems, $currentPage); ?></nav>
-        <div class="pos-sidebar-footer text-secondary">
-            <div class="fw-semibold text-truncate"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
-            <?php if (currentTenantName()): ?><div class="text-truncate small"><?= htmlspecialchars(currentTenantName()) ?></div><?php endif; ?>
+        <div class="pos-sidebar-footer text-secondary text-center">
+            <?php if (currentTenantName()): ?><div class="fw-bold text-dark text-truncate pos-tenant-name"><?= htmlspecialchars(currentTenantName()) ?></div><?php endif; ?>
+            <div class="text-truncate small"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
             <a href="<?= BASE_URL ?>/logout.php" class="small">Cerrar sesión</a>
         </div>
     </aside>
@@ -245,9 +246,9 @@ function pos_render_nav(array $items, string $currentPage): void
         </div>
         <div class="offcanvas-body d-flex flex-column p-0">
             <nav class="pos-nav"><?php pos_render_nav($navItems, $currentPage); ?></nav>
-            <div class="pos-sidebar-footer text-secondary mt-auto">
-                <div class="fw-semibold text-truncate"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
-                <?php if (currentTenantName()): ?><div class="text-truncate small"><?= htmlspecialchars(currentTenantName()) ?></div><?php endif; ?>
+            <div class="pos-sidebar-footer text-secondary mt-auto text-center">
+                <?php if (currentTenantName()): ?><div class="fw-bold text-dark text-truncate pos-tenant-name"><?= htmlspecialchars(currentTenantName()) ?></div><?php endif; ?>
+                <div class="text-truncate small"><?= htmlspecialchars(currentUserName() ?? '') ?></div>
                 <a href="<?= BASE_URL ?>/logout.php" class="small">Cerrar sesión</a>
             </div>
         </div>
