@@ -59,6 +59,7 @@
     font-size: 1.05rem;
     line-height: 1.15;
     max-width: 220px;
+    margin: 0 auto;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
