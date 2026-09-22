@@ -20,6 +20,8 @@ $user = filter_var($identifier, FILTER_VALIDATE_EMAIL)
     ? User::findByEmailGlobal($identifier)
     : User::findByPhoneGlobal($identifier);
 
+error_log('[forgot_password] identifier=' . $identifier . ' | user_found=' . ($user ? 'yes(id=' . $user['id'] . ',status=' . $user['status'] . ')' : 'no'));
+
 // Siempre respondemos igual, exista o no la cuenta, para no revelar qué
 // correos/teléfonos están registrados en el sistema. Los errores internos
 // (ej. problemas de esquema en la base) se registran en el log del
@@ -27,6 +29,7 @@ $user = filter_var($identifier, FILTER_VALIDATE_EMAIL)
 try {
     if ($user && $user['status'] === 'active') {
         $token = PasswordReset::create((int) $user['id']);
+        error_log('[forgot_password] password_resets insert OK for user_id=' . $user['id']);
         $resetUrl = BASE_URL . '/reset_password.php?token=' . urlencode($token);
 
         $body = '<p>Hola ' . htmlspecialchars($user['name']) . ',</p>'
@@ -39,7 +42,11 @@ try {
         send_app_mail($user['email'], 'Recuperá tu acceso a ' . APP_NAME, $body);
     }
 } catch (Throwable $e) {
-    error_log('[forgot_password] ' . $e->getMessage());
+    $detail = $e->getMessage();
+    if ($e instanceof PDOException && isset($e->errorInfo)) {
+        $detail .= ' | SQLSTATE=' . ($e->errorInfo[0] ?? '?') . ' driver_code=' . ($e->errorInfo[1] ?? '?') . ' driver_msg=' . ($e->errorInfo[2] ?? '?');
+    }
+    error_log('[forgot_password] EXCEPTION: ' . $detail);
 }
 
 header('Location: ' . BASE_URL . '/forgot_password.php?sent=1');
