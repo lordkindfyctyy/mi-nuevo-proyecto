@@ -89,6 +89,7 @@ if (APP_ENV === 'production' && !app_request_is_https() && PHP_SAPI !== 'cli') {
 }
 
 define('APP_NAME', app_config($overrides, 'APP_NAME', 'SixSeven'));
+define('CONTACT_NOTIFICATION_EMAIL', app_config($overrides, 'CONTACT_NOTIFICATION_EMAIL', 'sixsevenweb@gmail.com'));
 
 if (APP_ENV === 'local') {
     define('BASE_URL', app_config($overrides, 'APP_BASE_URL', 'http://localhost:8000'));
