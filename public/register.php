@@ -17,11 +17,22 @@ $errors = [
 ];
 ?>
 
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h4 fw-bold mb-4 text-center">Crea tu negocio</h1>
+<div class="row align-items-center g-4 g-lg-5 auth-page">
+    <div class="col-lg-6 auth-hero">
+        <span class="auth-hero-eyebrow">Gratis para probar</span>
+        <h1 class="auth-hero-title">¡Bienvenido a <span><?= APP_NAME ?></span>!</h1>
+        <p class="auth-hero-subtitle">Tenés tu cuenta gratis para probarla. Aprovechala y potenciá las ventas de tu negocio hoy mismo.</p>
+        <ul class="auth-hero-benefits">
+            <li><i class="bi bi-check-circle-fill"></i> Vendé y controlá tu inventario en minutos</li>
+            <li><i class="bi bi-check-circle-fill"></i> Catálogo online para compartir con tus clientes</li>
+            <li><i class="bi bi-check-circle-fill"></i> Sin tarjeta de crédito, empezás ahora mismo</li>
+        </ul>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <h2 class="h4 fw-bold mb-1 text-center">Creá tu cuenta gratis</h2>
+                <p class="text-secondary text-center small mb-4">Menos de un minuto, sin compromiso.</p>
 
                 <?php if (isset($_GET['error'])): ?>
                     <div class="alert alert-danger"><?= $errors[$_GET['error']] ?? $errors['invalid'] ?></div>
@@ -75,11 +86,11 @@ $errors = [
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill">Crear cuenta</button>
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill auth-cta-btn">Empezar gratis ahora</button>
                 </form>
 
                 <p class="text-center text-secondary small mt-3 mb-0">
-                    ¿Ya tienes cuenta? <a href="<?= BASE_URL ?>/login.php">Inicia sesión</a>
+                    ¿Ya tenés cuenta? <a href="<?= BASE_URL ?>/login.php">Iniciá sesión</a>
                 </p>
             </div>
         </div>

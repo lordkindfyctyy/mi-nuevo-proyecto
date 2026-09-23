@@ -9,11 +9,20 @@ if (isLoggedIn()) {
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h4 fw-bold mb-4 text-center">Iniciar sesión</h1>
+<div class="row align-items-center g-4 g-lg-5 auth-page">
+    <div class="col-lg-6 auth-hero">
+        <span class="auth-hero-eyebrow"><?= APP_NAME ?></span>
+        <h1 class="auth-hero-title">¡Bienvenido de nuevo!</h1>
+        <p class="auth-hero-subtitle">Entrá a tu cuenta y seguí vendiendo con todo bajo control: inventario, ventas y clientes en un solo lugar.</p>
+        <p class="mb-0">
+            <span class="fw-semibold d-block mb-2">¿Todavía no tenés cuenta?</span>
+            <a href="<?= BASE_URL ?>/register.php" class="btn btn-outline-primary rounded-pill auth-cta-btn">Probar gratis</a>
+        </p>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <h2 class="h4 fw-bold mb-4 text-center">Iniciar sesión</h2>
 
                 <?php if (isset($_GET['error'])): ?>
                     <div class="alert alert-danger">Correo o contraseña incorrectos.</div>

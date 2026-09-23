@@ -17,6 +17,14 @@
     --bs-btn-active-bg: var(--color-primary-dark);
     --bs-btn-active-border-color: var(--color-primary-dark);
 }
+.btn-outline-primary {
+    --bs-btn-color: var(--color-primary);
+    --bs-btn-border-color: var(--color-primary);
+    --bs-btn-hover-bg: var(--color-primary);
+    --bs-btn-hover-border-color: var(--color-primary);
+    --bs-btn-active-bg: var(--color-primary-dark);
+    --bs-btn-active-border-color: var(--color-primary-dark);
+}
 
 .text-primary {
     color: var(--color-primary) !important;
@@ -412,4 +420,72 @@ main {
     text-align: center;
     color: #6b7280;
     font-size: 0.875rem;
+}
+
+/* Pantallas de login/registro: hero de bienvenida + CTA bien visible,
+   pensado para gente que llega desde una campaña de Google Ads. */
+.auth-page { padding-block: .5rem 1.5rem; }
+.auth-hero { text-align: center; }
+@media (min-width: 992px) {
+    .auth-hero { text-align: left; }
+}
+.auth-hero-eyebrow {
+    display: inline-block;
+    background: rgba(0, 178, 143, .12);
+    color: var(--color-primary-dark);
+    font-weight: 700;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: .35rem .9rem;
+    border-radius: 999px;
+    margin-bottom: 1rem;
+}
+.auth-hero-title {
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: .85rem;
+    color: var(--color-text);
+}
+.auth-hero-title span { color: var(--color-primary); }
+@media (min-width: 992px) {
+    .auth-hero-title { font-size: 2.4rem; }
+}
+.auth-hero-subtitle {
+    font-size: 1.05rem;
+    color: #4b5563;
+    margin: 0 auto 1.5rem;
+    max-width: 30rem;
+}
+@media (min-width: 992px) {
+    .auth-hero-subtitle { margin-inline: 0; }
+}
+.auth-hero-benefits {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+    display: inline-flex;
+    flex-direction: column;
+    gap: .65rem;
+    text-align: left;
+}
+.auth-hero-benefits li {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.auth-hero-benefits li i {
+    color: var(--color-primary);
+    font-size: 1.2rem;
+    margin-top: .05rem;
+    flex-shrink: 0;
+}
+.auth-cta-btn {
+    font-size: 1.05rem;
+    padding: .85rem 1.5rem;
+    font-weight: 700;
+    box-shadow: 0 .6rem 1.4rem rgba(0, 178, 143, .3);
 }
