@@ -62,6 +62,17 @@ class User
         return $row ?: null;
     }
 
+    /**
+     * The account(s) that see and answer every business's "Soporte
+     * técnico" thread and the public contact form (users.is_support_admin).
+     */
+    public static function allSupportAdmins(): array
+    {
+        $stmt = self::db()->query("SELECT * FROM users WHERE is_support_admin = 1 AND status = 'active'");
+
+        return $stmt->fetchAll();
+    }
+
     public static function allByTenant(int $tenantId): array
     {
         $stmt = self::db()->prepare('SELECT * FROM users WHERE tenant_id = :tenant_id ORDER BY name');
