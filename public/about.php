@@ -67,12 +67,4 @@
     </div>
 </section>
 
-<section class="py-5">
-    <div class="cta-banner text-center">
-        <h2 class="fw-bold">¿Listo para potenciar tu negocio?</h2>
-        <p class="mb-4">Sumate a los negocios que ya gestionan sus ventas con SixSeven.</p>
-        <a href="<?= BASE_URL ?>/contact.php" class="btn btn-light btn-lg rounded-pill px-4 fw-semibold">Contactanos</a>
-    </div>
-</section>
-
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
