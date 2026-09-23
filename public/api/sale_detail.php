@@ -15,6 +15,7 @@ $paymentLabels = [
     'transfer' => 'Transferencia',
     'qr' => 'QR',
     'other' => 'Otro',
+    'mixed' => 'Pago mixto',
 ];
 
 $tenantId = currentTenantId();
@@ -59,6 +60,22 @@ $items = array_map(function ($item) use (&$revenue, &$cost) {
 $token = Sale::getOrCreatePublicToken($saleId);
 $remitoUrl = receipt_public_url($token);
 
+$paymentLabel = $paymentLabels[$sale['payment_method']] ?? $sale['payment_method'];
+$splitPayments = [];
+if ($sale['payment_method'] === 'mixed') {
+    foreach (Sale::paymentsFor($saleId) as $payment) {
+        $splitPayments[] = [
+            'method' => $payment['payment_method'],
+            'label' => $paymentLabels[$payment['payment_method']] ?? $payment['payment_method'],
+            'amount' => (float) $payment['amount'],
+        ];
+    }
+    $paymentLabel .= ' (' . implode(' + ', array_map(
+        fn($p) => $p['label'] . ' $' . number_format($p['amount'], 2),
+        $splitPayments
+    )) . ')';
+}
+
 echo json_encode([
     'ok' => true,
     'sale' => [
@@ -67,7 +84,8 @@ echo json_encode([
         'status' => $sale['status'],
         'status_label' => $sale['status'] === 'completed' ? 'Pagada' : 'Anulada',
         'payment_method' => $sale['payment_method'],
-        'payment_label' => $paymentLabels[$sale['payment_method']] ?? $sale['payment_method'],
+        'payment_label' => $paymentLabel,
+        'split_payments' => $splitPayments,
         'customer_name' => $sale['customer_name'],
         'seller_name' => $seller['name'] ?? null,
         'subtotal' => $revenue,

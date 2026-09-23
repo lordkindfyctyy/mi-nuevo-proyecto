@@ -36,8 +36,10 @@ $paymentLabels = [
     'transfer' => 'Transferencia',
     'qr' => 'QR',
     'other' => 'Otro',
+    'mixed' => 'Pago mixto',
 ];
 $paymentLabel = $paymentLabels[$sale['payment_method']] ?? $sale['payment_method'];
+$splitPayments = $sale['payment_method'] === 'mixed' ? Sale::paymentsFor((int) $sale['id']) : [];
 $isCancelled = $sale['status'] !== 'completed';
 ?>
 <!DOCTYPE html>
@@ -163,10 +165,16 @@ $isCancelled = $sale['status'] !== 'completed';
                         <span class="text-secondary">Vendedor</span>
                         <span><?= htmlspecialchars($sale['seller_name']) ?></span>
                     </div>
-                    <div class="receipt-meta-row mb-0">
+                    <div class="receipt-meta-row <?= $splitPayments ? '' : 'mb-0' ?>">
                         <span class="text-secondary">Medio de pago</span>
                         <span><?= htmlspecialchars($paymentLabel) ?></span>
                     </div>
+                    <?php foreach ($splitPayments as $payment): ?>
+                        <div class="receipt-meta-row mb-0 ps-3">
+                            <span class="text-secondary">· <?= htmlspecialchars($paymentLabels[$payment['payment_method']] ?? $payment['payment_method']) ?></span>
+                            <span>$<?= number_format((float) $payment['amount'], 2) ?></span>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
 
                 <div class="receipt-divider"></div>

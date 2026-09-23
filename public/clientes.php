@@ -20,6 +20,7 @@ $paymentLabels = [
     'transfer' => 'Transferencia',
     'qr' => 'QR',
     'other' => 'Otro',
+    'mixed' => 'Pago mixto',
 ];
 ?>
 

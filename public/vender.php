@@ -307,19 +307,60 @@ function pos_render_nav(array $items, string $currentPage): void
                         <span>Total a cobrar</span>
                         <span id="confirm-sale-total">$0.00</span>
                     </div>
-                    <label class="form-label small text-secondary mb-2">Medio de pago</label>
-                    <div class="btn-group w-100 mb-3" role="group" aria-label="Medio de pago" id="payment-method-group">
-                        <button type="button" class="btn btn-outline-primary payment-method-btn active" data-value="cash">Efectivo</button>
-                        <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="card">Tarjeta</button>
-                        <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="transfer">Transferencia</button>
-                        <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="qr">QR</button>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="split-payment-toggle">
+                        <label class="form-check-label small" for="split-payment-toggle">Pagar con dos medios</label>
                     </div>
-                    <div id="cash-received-block">
-                        <label for="cash-received-input" class="form-label small text-secondary">¿Con cuánto paga el cliente? (opcional)</label>
-                        <input type="number" step="any" min="0" class="form-control" id="cash-received-input" placeholder="Ej: 10000">
-                        <div class="mt-2 small" id="change-due-line" hidden>
-                            <span id="change-due-label"></span> <span id="change-due-amount" class="fw-semibold"></span>
+                    <div id="single-payment-block">
+                        <label class="form-label small text-secondary mb-2">Medio de pago</label>
+                        <div class="btn-group w-100 mb-3" role="group" aria-label="Medio de pago" id="payment-method-group">
+                            <button type="button" class="btn btn-outline-primary payment-method-btn active" data-value="cash">Efectivo</button>
+                            <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="card">Tarjeta</button>
+                            <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="transfer">Transferencia</button>
+                            <button type="button" class="btn btn-outline-primary payment-method-btn" data-value="qr">QR</button>
                         </div>
+                        <div id="cash-received-block">
+                            <label for="cash-received-input" class="form-label small text-secondary">¿Con cuánto paga el cliente? (opcional)</label>
+                            <input type="number" step="any" min="0" class="form-control" id="cash-received-input" placeholder="Ej: 10000">
+                            <div class="mt-2 small" id="change-due-line" hidden>
+                                <span id="change-due-label"></span> <span id="change-due-amount" class="fw-semibold"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="split-payment-block" hidden>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label class="form-label small text-secondary mb-1">Medio 1</label>
+                                <select class="form-select" id="split-method-1">
+                                    <option value="cash" selected>Efectivo</option>
+                                    <option value="card">Tarjeta</option>
+                                    <option value="transfer">Transferencia</option>
+                                    <option value="qr">QR</option>
+                                    <option value="other">Otro</option>
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <label for="split-amount-1" class="form-label small text-secondary mb-1">Monto</label>
+                                <input type="number" step="any" min="0" class="form-control" id="split-amount-1" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-7">
+                                <label class="form-label small text-secondary mb-1">Medio 2</label>
+                                <select class="form-select" id="split-method-2">
+                                    <option value="cash">Efectivo</option>
+                                    <option value="card" selected>Tarjeta</option>
+                                    <option value="transfer">Transferencia</option>
+                                    <option value="qr">QR</option>
+                                    <option value="other">Otro</option>
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <label for="split-amount-2" class="form-label small text-secondary mb-1">Monto</label>
+                                <input type="number" step="any" min="0" class="form-control" id="split-amount-2" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="mt-2 small text-danger" id="split-error-line" hidden>Los montos deben sumar el total de la venta.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -373,6 +414,7 @@ function pos_render_nav(array $items, string $currentPage): void
                 $errors = [
                     'stock' => 'No hay suficiente stock para uno o más productos seleccionados.',
                     'items' => 'Selecciona al menos un producto con cantidad mayor a cero.',
+                    'split_payment' => 'Los montos de los dos medios de pago no suman el total de la venta. Revisalos e intenta de nuevo.',
                 ];
                 echo $errors[$_GET['error']] ?? 'No se pudo registrar la venta. Intenta de nuevo.';
                 ?>
@@ -421,6 +463,11 @@ function pos_render_nav(array $items, string $currentPage): void
                     <a href="<?= BASE_URL ?>/clientes.php" target="_blank" class="form-text text-decoration-none">¿No está en la lista? Agrégalo en Clientes.</a>
                 </div>
                 <input type="hidden" id="payment_method" name="payment_method" value="cash">
+                <input type="hidden" id="split_enabled" name="split_enabled" value="0">
+                <input type="hidden" id="split_method_1" name="split_method_1" value="">
+                <input type="hidden" id="split_amount_1" name="split_amount_1" value="">
+                <input type="hidden" id="split_method_2" name="split_method_2" value="">
+                <input type="hidden" id="split_amount_2" name="split_amount_2" value="">
                 <div class="pos-discount-block mb-2">
                     <div class="d-flex align-items-center justify-content-between">
                         <div class="form-check form-switch mb-0">
@@ -1013,6 +1060,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const changeDueLabel = document.getElementById('change-due-label');
     const changeDueAmount = document.getElementById('change-due-amount');
     const confirmSaleBtn = document.getElementById('confirm-sale-btn');
+    const splitToggle = document.getElementById('split-payment-toggle');
+    const singlePaymentBlock = document.getElementById('single-payment-block');
+    const splitPaymentBlock = document.getElementById('split-payment-block');
+    const splitMethod1 = document.getElementById('split-method-1');
+    const splitAmount1 = document.getElementById('split-amount-1');
+    const splitMethod2 = document.getElementById('split-method-2');
+    const splitAmount2 = document.getElementById('split-amount-2');
+    const splitErrorLine = document.getElementById('split-error-line');
+    const splitEnabledInput = document.getElementById('split_enabled');
+    const splitMethod1Input = document.getElementById('split_method_1');
+    const splitAmount1Input = document.getElementById('split_amount_1');
+    const splitMethod2Input = document.getElementById('split_method_2');
+    const splitAmount2Input = document.getElementById('split_amount_2');
 
     function updateChangeDue() {
         const received = parseFloat(cashReceivedInput.value);
@@ -1048,14 +1108,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     cashReceivedInput.addEventListener('input', updateChangeDue);
 
+    function setSplitMode(enabled) {
+        singlePaymentBlock.hidden = enabled;
+        splitPaymentBlock.hidden = !enabled;
+        splitErrorLine.hidden = true;
+        if (enabled) {
+            splitAmount1.value = '';
+            splitAmount2.value = currentGrandTotal ? currentGrandTotal.toFixed(2) : '';
+        }
+    }
+
+    splitToggle.addEventListener('change', () => setSplitMode(splitToggle.checked));
+
+    // Al cargar un monto en un medio, autocompleta el otro con lo que falta
+    // para llegar al total, para no obligar a hacer la resta a mano.
+    splitAmount1.addEventListener('input', () => {
+        const entered = parseFloat(splitAmount1.value);
+        splitErrorLine.hidden = true;
+        if (!isNaN(entered) && entered >= 0) {
+            splitAmount2.value = Math.max(0, currentGrandTotal - entered).toFixed(2);
+        }
+    });
+    splitAmount2.addEventListener('input', () => {
+        const entered = parseFloat(splitAmount2.value);
+        splitErrorLine.hidden = true;
+        if (!isNaN(entered) && entered >= 0) {
+            splitAmount1.value = Math.max(0, currentGrandTotal - entered).toFixed(2);
+        }
+    });
+
     confirmSaleModalEl.addEventListener('show.bs.modal', () => {
         confirmSaleTotalEl.textContent = formatMoney(currentGrandTotal);
         cashReceivedInput.value = '';
         changeDueLine.hidden = true;
+        splitToggle.checked = false;
+        setSplitMode(false);
         selectPaymentMethod('cash');
     });
 
     confirmSaleBtn.addEventListener('click', () => {
+        if (splitToggle.checked) {
+            const amount1 = parseFloat(splitAmount1.value);
+            const amount2 = parseFloat(splitAmount2.value);
+            const validAmounts = !isNaN(amount1) && !isNaN(amount2) && amount1 > 0 && amount2 > 0;
+            const sumMatches = validAmounts && Math.abs((amount1 + amount2) - currentGrandTotal) <= 0.01;
+            if (!validAmounts || !sumMatches) {
+                splitErrorLine.hidden = false;
+                return;
+            }
+
+            splitEnabledInput.value = '1';
+            splitMethod1Input.value = splitMethod1.value;
+            splitAmount1Input.value = amount1.toFixed(2);
+            splitMethod2Input.value = splitMethod2.value;
+            splitAmount2Input.value = amount2.toFixed(2);
+            paymentMethodInput.value = 'mixed';
+        } else {
+            splitEnabledInput.value = '0';
+        }
+
         bootstrap.Modal.getInstance(confirmSaleModalEl)?.hide();
         saleForm.requestSubmit();
     });

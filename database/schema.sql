@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS sales (
     customer_name VARCHAR(150) NULL,
     total DECIMAL(10,2) NOT NULL DEFAULT 0,
     discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-    payment_method ENUM('cash', 'card', 'transfer', 'qr', 'other') NOT NULL DEFAULT 'cash',
+    payment_method ENUM('cash', 'card', 'transfer', 'qr', 'other', 'mixed') NOT NULL DEFAULT 'cash',
     status ENUM('completed', 'cancelled') NOT NULL DEFAULT 'completed',
     public_token VARCHAR(40) NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -127,6 +127,18 @@ CREATE TABLE IF NOT EXISTS sale_items (
     KEY idx_sale_items_product (product_id),
     CONSTRAINT fk_sale_items_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     CONSTRAINT fk_sale_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Desglose de pago para ventas con más de un medio de pago (payment_method
+-- = 'mixed' en sales); para ventas de un solo medio no se usa esta tabla.
+CREATE TABLE IF NOT EXISTS sale_payments (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    sale_id INT UNSIGNED NOT NULL,
+    payment_method ENUM('cash', 'card', 'transfer', 'qr', 'other') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_sale_payments_sale (sale_id),
+    CONSTRAINT fk_sale_payments_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Proveedores

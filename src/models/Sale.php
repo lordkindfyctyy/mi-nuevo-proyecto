@@ -12,8 +12,11 @@ class Sale
 
     /**
      * @param array<int, array{product_id:int, quantity:int, unit_price:float}> $items
+     * @param array<int, array{method:string, amount:float}> $splitPayments Optional breakdown for a sale
+     *        paid with more than one payment method; when it has 2+ entries, $paymentMethod is
+     *        overridden to 'mixed' and each entry is stored in sale_payments.
      */
-    public static function create(int $tenantId, int $userId, array $items, ?string $customerName = null, string $paymentMethod = 'cash', ?int $customerId = null, float $discountAmount = 0.0): int
+    public static function create(int $tenantId, int $userId, array $items, ?string $customerName = null, string $paymentMethod = 'cash', ?int $customerId = null, float $discountAmount = 0.0, array $splitPayments = []): int
     {
         $db = self::db();
         $db->beginTransaction();
@@ -30,6 +33,10 @@ class Sale
             $discountAmount = max(0.0, min($discountAmount, $subtotal));
             $total = $subtotal - $discountAmount;
 
+            if (count($splitPayments) >= 2) {
+                $paymentMethod = 'mixed';
+            }
+
             $stmt = $db->prepare(
                 'INSERT INTO sales (tenant_id, user_id, customer_id, customer_name, total, discount_amount, payment_method)
                  VALUES (:tenant_id, :user_id, :customer_id, :customer_name, :total, :discount_amount, :payment_method)'
@@ -44,6 +51,19 @@ class Sale
                 'payment_method' => $paymentMethod,
             ]);
             $saleId = (int) $db->lastInsertId();
+
+            if ($paymentMethod === 'mixed') {
+                $paymentStmt = $db->prepare(
+                    'INSERT INTO sale_payments (sale_id, payment_method, amount) VALUES (:sale_id, :payment_method, :amount)'
+                );
+                foreach ($splitPayments as $payment) {
+                    $paymentStmt->execute([
+                        'sale_id' => $saleId,
+                        'payment_method' => $payment['method'],
+                        'amount' => $payment['amount'],
+                    ]);
+                }
+            }
 
             $itemStmt = $db->prepare(
                 'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
@@ -144,6 +164,18 @@ class Sale
              JOIN products p ON p.id = si.product_id
              WHERE si.sale_id = :sale_id'
         );
+        $stmt->execute(['sale_id' => $saleId]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Payment breakdown for a sale with payment_method = 'mixed'; empty for
+     * any sale paid with a single method (see create()'s $splitPayments doc).
+     */
+    public static function paymentsFor(int $saleId): array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM sale_payments WHERE sale_id = :sale_id');
         $stmt->execute(['sale_id' => $saleId]);
 
         return $stmt->fetchAll();

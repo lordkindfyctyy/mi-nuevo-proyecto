@@ -29,6 +29,7 @@ $periodOptions = [
     'week' => 'Esta semana',
     'month' => 'Este mes',
     'year' => 'Este año',
+    'mixed' => 'Pago mixto',
 ];
 
 $paymentLabels = [
@@ -37,6 +38,7 @@ $paymentLabels = [
     'transfer' => 'Transferencia',
     'qr' => 'QR',
     'other' => 'Otro',
+    'mixed' => 'Pago mixto',
 ];
 ?>
 

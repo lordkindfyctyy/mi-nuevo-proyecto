@@ -14,6 +14,7 @@ $paymentLabels = [
     'transfer' => 'Transferencia',
     'qr' => 'QR',
     'other' => 'Otro',
+    'mixed' => 'Pago mixto',
 ];
 
 $totalVendido = array_sum(array_map(

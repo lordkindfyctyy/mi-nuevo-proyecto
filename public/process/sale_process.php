@@ -94,6 +94,29 @@ if (!in_array($paymentMethod, $allowedMethods, true)) {
     $paymentMethod = 'cash';
 }
 
+// Pago con dos medios (ej. mitad efectivo, mitad tarjeta): cada monto se
+// revalida en el servidor y la suma debe coincidir con el total real de la
+// venta (ya con el descuento aplicado), nunca con lo que mande el navegador.
+$splitPayments = [];
+if (($_POST['split_enabled'] ?? '') === '1') {
+    for ($i = 1; $i <= 2; $i++) {
+        $splitMethod = $_POST["split_method_$i"] ?? '';
+        $splitAmount = $_POST["split_amount_$i"] ?? '';
+        if (!in_array($splitMethod, $allowedMethods, true) || !is_numeric($splitAmount) || (float) $splitAmount <= 0) {
+            header('Location: ' . BASE_URL . '/vender.php?error=split_payment');
+            exit;
+        }
+        $splitPayments[] = ['method' => $splitMethod, 'amount' => round((float) $splitAmount, 2)];
+    }
+
+    $expectedTotal = round($subtotal - $discountAmount, 2);
+    $splitSum = round(array_sum(array_column($splitPayments, 'amount')), 2);
+    if (abs($splitSum - $expectedTotal) > 0.01) {
+        header('Location: ' . BASE_URL . '/vender.php?error=split_payment');
+        exit;
+    }
+}
+
 $customerId = null;
 $customerName = null;
 $postedCustomerId = (int) ($_POST['customer_id'] ?? 0);
@@ -106,7 +129,7 @@ if ($postedCustomerId > 0) {
 }
 
 try {
-    $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod, $customerId, $discountAmount);
+    $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod, $customerId, $discountAmount, $splitPayments);
     header('Location: ' . BASE_URL . '/vender.php?success=1&sale=' . $saleId);
     exit;
 } catch (Throwable $e) {
