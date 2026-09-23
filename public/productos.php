@@ -104,7 +104,7 @@ sort($brands);
 <div class="modal fade" id="importProductsModal" tabindex="-1" aria-labelledby="importProductsModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="<?= BASE_URL ?>/process/product_import_process.php" enctype="multipart/form-data">
+            <form method="POST" action="<?= BASE_URL ?>/process/product_import_process.php" enctype="multipart/form-data" id="importProductsForm">
                 <div class="modal-header">
                     <h5 class="modal-title" id="importProductsModalLabel"><i class="bi bi-file-earmark-excel me-2"></i>Importar productos desde Excel</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -142,7 +142,7 @@ sort($brands);
 <div class="card border-0 shadow-sm mb-4" id="simpleProductCard" <?= $editing ? '' : 'hidden' ?>>
     <div class="card-body">
         <h2 class="h5 fw-semibold mb-3"><?= $editing ? 'Editar producto' : 'Nuevo producto' ?></h2>
-        <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" enctype="multipart/form-data" class="row g-3">
+        <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" enctype="multipart/form-data" class="row g-3" id="simpleProductForm">
             <input type="hidden" name="action" value="<?= $editing ? 'update' : 'create' ?>">
             <?php if ($editing): ?>
                 <input type="hidden" name="id" value="<?= (int) $editing['id'] ?>">
@@ -208,7 +208,7 @@ sort($brands);
                                 <label class="form-check-label small text-secondary" for="remove_image">Quitar imagen actual</label>
                             </div>
                         <?php else: ?>
-                            <div class="form-text">JPG, PNG, GIF o WEBP. Máximo 5 MB.</div>
+                            <div class="form-text">JPG, PNG, GIF o WEBP. Se optimiza sola antes de subirla, aunque sea una foto pesada de celular.</div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -229,6 +229,74 @@ sort($brands);
     </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Las fotos que salen directo de la cámara de un celular pueden pesar
+    // varios MB: subirlas así de pesadas es lo que hacía sentir "trabada"
+    // la pantalla en conexiones lentas. Las comprimimos en el navegador
+    // antes de enviarlas, así el POST real pesa una fracción de eso.
+    window.setupImageCompression = function setupImageCompression(inputId, maxDimension = 1600, quality = 0.82) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.addEventListener('change', async () => {
+            const file = input.files[0];
+            if (!file || !file.type.startsWith('image/') || file.type === 'image/gif') return;
+            if (file.size <= 350 * 1024) return; // ya es chica, no vale la pena tocarla
+
+            try {
+                const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+                let { width, height } = bitmap;
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = Math.round(height * (maxDimension / width));
+                        width = maxDimension;
+                    } else {
+                        width = Math.round(width * (maxDimension / height));
+                        height = maxDimension;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+                bitmap.close();
+
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+                if (blob && blob.size < file.size) {
+                    const compressed = new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' });
+                    const dt = new DataTransfer();
+                    dt.items.add(compressed);
+                    input.files = dt.files;
+                }
+            } catch (e) {
+                // Si el navegador no soporta algo acá, seguimos con el archivo
+                // original tal cual lo eligió el usuario: no rompemos el flujo.
+                console.warn('No se pudo optimizar la imagen, se sube tal cual.', e);
+            }
+        });
+    };
+
+    // Feedback claro mientras se sube el formulario, para que no parezca
+    // trabado (y no se tiente a salir de la pantalla a mitad de la subida).
+    window.setupFormLoadingState = function setupFormLoadingState(formId, loadingText) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        form.addEventListener('submit', () => {
+            const btn = form.querySelector('button[type="submit"]');
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            btn.dataset.originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + loadingText;
+        });
+    };
+
+    setupImageCompression('imagen');
+    setupFormLoadingState('simpleProductForm', 'Guardando...');
+});
+</script>
+
 <?php if (!$editing): ?>
 <div class="card border-0 shadow-sm mb-4" id="variantProductCard" hidden>
     <div class="card-body">
@@ -246,7 +314,7 @@ sort($brands);
                 <div class="col-md-6">
                     <label for="variant_imagen" class="form-label">Imagen principal</label>
                     <input type="file" id="variant_imagen" name="imagen" class="form-control" accept="image/*">
-                    <div class="form-text">Se usa para todas las presentaciones. JPG, PNG, GIF o WEBP. Máximo 5 MB.</div>
+                    <div class="form-text">Se usa para todas las presentaciones. JPG, PNG, GIF o WEBP. Se optimiza sola antes de subirla.</div>
                 </div>
                 <div class="col-md-6">
                     <label for="variant_description" class="form-label">Descripción</label>
@@ -410,6 +478,10 @@ document.addEventListener('DOMContentLoaded', () => {
 <?php if (!$editing): ?>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    setupImageCompression('variant_imagen');
+    setupFormLoadingState('variantProductForm', 'Guardando...');
+    setupFormLoadingState('importProductsForm', 'Importando...');
+
     const openBtn = document.getElementById('openCreateProductBtn');
     const choiceModalEl = document.getElementById('createProductChoiceModal');
     const choiceModal = new bootstrap.Modal(choiceModalEl);
