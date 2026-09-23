@@ -361,6 +361,9 @@ function pos_render_nav(array $items, string $currentPage): void
                 <a href="<?= htmlspecialchars($lastSaleWhatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-success btn-sm text-nowrap">
                     <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
                 </a>
+                <a href="<?= htmlspecialchars(receipt_public_url($lastSaleToken)) ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-circle icon-btn-sm" title="Ver remito digital" aria-label="Ver remito digital">
+                    <i class="bi bi-globe2"></i>
+                </a>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
@@ -1060,7 +1063,46 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCategoryFilters();
     renderAll();
     focusSearch();
+
+    <?php if ($lastSale): ?>
+    playCashRegisterSound();
+    <?php endif; ?>
 });
+
+function playCashRegisterSound() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+
+        function bell(time, freq, duration, peakGain) {
+            const osc = ctx.createOscillator();
+            const overtone = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            overtone.type = 'sine';
+            osc.frequency.value = freq;
+            overtone.frequency.value = freq * 2.4;
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(peakGain, time + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+            osc.connect(gain);
+            overtone.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(time);
+            overtone.start(time);
+            osc.stop(time + duration);
+            overtone.stop(time + duration);
+        }
+
+        bell(now, 1568, 0.18, 0.25);
+        bell(now + 0.14, 2093, 0.35, 0.28);
+
+        setTimeout(() => ctx.close(), 800);
+    } catch (e) {
+        // Si el navegador bloquea el audio automático, se ignora en silencio.
+    }
+}
 </script>
 </body>
 </html>
