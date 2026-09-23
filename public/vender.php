@@ -28,11 +28,13 @@ $tenant = $tenantId ? Tenant::find($tenantId) : null;
 
 $lastSale = null;
 $lastSaleWhatsappUrl = null;
+$lastSaleWhatsappMessage = null;
 if (isset($_GET['success'], $_GET['sale']) && $tenantId) {
     $lastSale = Sale::findForTenant((int) $_GET['sale'], $tenantId);
     if ($lastSale) {
         $lastSaleToken = Sale::getOrCreatePublicToken((int) $lastSale['id']);
         $lastSaleWhatsappUrl = receipt_whatsapp_share_url($tenant['name'] ?? APP_NAME, $lastSale, receipt_public_url($lastSaleToken));
+        $lastSaleWhatsappMessage = receipt_whatsapp_message($tenant['name'] ?? APP_NAME, $lastSale, receipt_public_url($lastSaleToken));
     }
 }
 $catalogUrl = $tenantId ? BASE_URL . '/catalogo.php?t=' . Tenant::getOrCreatePublicToken($tenantId) : null;
@@ -398,17 +400,25 @@ function pos_render_nav(array $items, string $currentPage): void
             </button>
         </div>
         <?php if ($lastSale): ?>
-            <div class="alert alert-success alert-dismissible fade show d-flex flex-wrap align-items-center gap-2" role="alert">
-                <div class="flex-grow-1">
-                    <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong> Total: $<?= number_format((float) $lastSale['total'], 2) ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <div class="flex-grow-1">
+                        <strong>Venta #<?= (int) $lastSale['id'] ?> registrada.</strong> Total: $<?= number_format((float) $lastSale['total'], 2) ?>
+                    </div>
+                    <a href="<?= htmlspecialchars($lastSaleWhatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-success btn-sm text-nowrap">
+                        <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
+                    </a>
+                    <a href="<?= htmlspecialchars(receipt_public_url($lastSaleToken)) ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-circle icon-btn-sm" title="Ver remito digital" aria-label="Ver remito digital">
+                        <i class="bi bi-globe2"></i>
+                    </a>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-                <a href="<?= htmlspecialchars($lastSaleWhatsappUrl) ?>" target="_blank" rel="noopener" class="btn btn-success btn-sm text-nowrap">
-                    <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
-                </a>
-                <a href="<?= htmlspecialchars(receipt_public_url($lastSaleToken)) ?>" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-circle icon-btn-sm" title="Ver remito digital" aria-label="Ver remito digital">
-                    <i class="bi bi-globe2"></i>
-                </a>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                    <input type="tel" class="form-control form-control-sm" id="last-sale-whatsapp-phone" placeholder="WhatsApp del cliente, con código de país (ej. 5493511234567)" style="max-width: 320px;">
+                    <button type="button" class="btn btn-outline-success btn-sm text-nowrap" id="last-sale-whatsapp-send-btn">
+                        <i class="bi bi-send"></i> Enviarle el remito por WhatsApp
+                    </button>
+                </div>
             </div>
         <?php endif; ?>
         <?php if (isset($_GET['error'])): ?>
@@ -1229,6 +1239,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshSoundToggleUI();
 });
+
+<?php if ($lastSale): ?>
+// --- Enviar el remito de la venta que se acaba de registrar a un número de
+// WhatsApp puntual del cliente, en vez de dejar que WhatsApp pregunte el
+// contacto (eso es lo que hace el botón "Compartir por WhatsApp" de al lado).
+document.addEventListener('DOMContentLoaded', () => {
+    const sendBtn = document.getElementById('last-sale-whatsapp-send-btn');
+    const phoneInput = document.getElementById('last-sale-whatsapp-phone');
+    if (!sendBtn || !phoneInput) return;
+
+    const message = <?= json_encode($lastSaleWhatsappMessage) ?>;
+
+    sendBtn.addEventListener('click', () => {
+        const digits = phoneInput.value.replace(/\D/g, '');
+        if (!digits) {
+            phoneInput.focus();
+            return;
+        }
+        window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent(message), '_blank', 'noopener');
+    });
+
+    phoneInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+});
+<?php endif; ?>
 
 function playSaleConfirmChime() {
     try {
