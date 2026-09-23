@@ -389,7 +389,10 @@ function pos_render_nav(array $items, string $currentPage): void
     <?php require_once __DIR__ . '/../includes/catalog_chat_admin_widget.php'; ?>
 
     <main class="pos-products">
-        <div class="d-flex justify-content-end mb-2">
+        <div class="d-flex justify-content-end gap-2 mb-2">
+            <button type="button" class="btn btn-outline-secondary rounded-circle" id="sale-sound-toggle-btn" title="Sonido al confirmar venta" aria-label="Activar o silenciar el sonido al confirmar una venta">
+                <i class="bi bi-volume-up-fill" id="sale-sound-toggle-icon"></i>
+            </button>
             <button type="button" class="btn btn-outline-secondary rounded-circle settings-gear-btn" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Ajustes" aria-label="Ajustes">
                 <i class="bi bi-gear"></i>
             </button>
@@ -1176,40 +1179,89 @@ document.addEventListener('DOMContentLoaded', () => {
     focusSearch();
 
     <?php if ($lastSale): ?>
-    playCashRegisterSound();
+    if (isSaleSoundEnabled()) {
+        playSaleConfirmChime();
+    }
     <?php endif; ?>
 });
 
-function playCashRegisterSound() {
+// --- Sonido de confirmación de venta: se puede silenciar desde el botón de
+// parlante junto al de Ajustes; la preferencia se guarda en localStorage
+// (por navegador, no por cuenta) y se recuerda entre visitas. ---
+const SALE_SOUND_STORAGE_KEY = 'sixseven_sale_sound_enabled';
+
+function isSaleSoundEnabled() {
+    try {
+        return localStorage.getItem(SALE_SOUND_STORAGE_KEY) !== '0';
+    } catch (e) {
+        return true;
+    }
+}
+
+function setSaleSoundEnabled(enabled) {
+    try {
+        localStorage.setItem(SALE_SOUND_STORAGE_KEY, enabled ? '1' : '0');
+    } catch (e) {
+        // Si el navegador bloquea localStorage (modo privado, etc.), la
+        // preferencia simplemente no persiste entre visitas.
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const soundToggleBtn = document.getElementById('sale-sound-toggle-btn');
+    const soundToggleIcon = document.getElementById('sale-sound-toggle-icon');
+    if (!soundToggleBtn || !soundToggleIcon) return;
+
+    function refreshSoundToggleUI() {
+        const enabled = isSaleSoundEnabled();
+        soundToggleIcon.className = enabled ? 'bi bi-volume-up-fill' : 'bi bi-volume-mute-fill';
+        soundToggleBtn.title = enabled ? 'Sonido activado al confirmar venta (clic para silenciar)' : 'Sonido silenciado al confirmar venta (clic para activar)';
+    }
+
+    soundToggleBtn.addEventListener('click', () => {
+        const enabled = !isSaleSoundEnabled();
+        setSaleSoundEnabled(enabled);
+        refreshSoundToggleUI();
+        if (enabled) {
+            playSaleConfirmChime();
+        }
+    });
+
+    refreshSoundToggleUI();
+});
+
+function playSaleConfirmChime() {
     try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const ctx = new AudioCtx();
         const now = ctx.currentTime;
 
-        function bell(time, freq, duration, peakGain) {
+        // Notas de un acorde suave (A5 -> C#6 + E6) con un filtro pasa-bajos
+        // para quitarle el brillo metálico y que suene más a "campanita" de
+        // app moderna que a caja registradora.
+        function chimeNote(time, freq, duration, peakGain) {
             const osc = ctx.createOscillator();
-            const overtone = ctx.createOscillator();
+            const filter = ctx.createBiquadFilter();
             const gain = ctx.createGain();
             osc.type = 'sine';
-            overtone.type = 'sine';
             osc.frequency.value = freq;
-            overtone.frequency.value = freq * 2.4;
+            filter.type = 'lowpass';
+            filter.frequency.value = 3200;
             gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(peakGain, time + 0.01);
+            gain.gain.linearRampToValueAtTime(peakGain, time + 0.04);
             gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-            osc.connect(gain);
-            overtone.connect(gain);
+            osc.connect(filter);
+            filter.connect(gain);
             gain.connect(ctx.destination);
             osc.start(time);
-            overtone.start(time);
             osc.stop(time + duration);
-            overtone.stop(time + duration);
         }
 
-        bell(now, 1568, 0.18, 0.25);
-        bell(now + 0.14, 2093, 0.35, 0.28);
+        chimeNote(now, 880.00, 0.4, 0.18);
+        chimeNote(now + 0.13, 1108.73, 0.55, 0.16);
+        chimeNote(now + 0.13, 1318.51, 0.55, 0.1);
 
-        setTimeout(() => ctx.close(), 800);
+        setTimeout(() => ctx.close(), 900);
     } catch (e) {
         // Si el navegador bloquea el audio automático, se ignora en silencio.
     }
