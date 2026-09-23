@@ -22,9 +22,14 @@ sort($brands);
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 fw-bold mb-0">Productos</h1>
     <?php if (!$editing): ?>
-        <button type="button" class="btn btn-primary rounded-pill px-4" id="openCreateProductBtn">
-            <i class="bi bi-plus-lg"></i> Crear producto
-        </button>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#importProductsModal">
+                <i class="bi bi-file-earmark-excel"></i> Importar Excel
+            </button>
+            <button type="button" class="btn btn-primary rounded-pill px-4" id="openCreateProductBtn">
+                <i class="bi bi-plus-lg"></i> Crear producto
+            </button>
+        </div>
     <?php endif; ?>
 </div>
 
@@ -34,9 +39,27 @@ sort($brands);
             Producto eliminado.
         <?php elseif ($_GET['success'] === 'variants'): ?>
             Se <?= ((int) ($_GET['count'] ?? 0)) === 1 ? 'creó 1 presentación' : 'crearon ' . (int) ($_GET['count'] ?? 0) . ' presentaciones' ?> correctamente.
+        <?php elseif ($_GET['success'] === 'import'): ?>
+            Se importaron <?= (int) ($_GET['count'] ?? 0) ?> producto<?= ((int) ($_GET['count'] ?? 0)) === 1 ? '' : 's' ?> desde el Excel.
+            <?php if ((int) ($_GET['skipped'] ?? 0) > 0): ?>
+                Se omitieron <?= (int) $_GET['skipped'] ?> fila<?= ((int) $_GET['skipped']) === 1 ? '' : 's' ?> con errores.
+            <?php endif; ?>
         <?php else: ?>
             Producto guardado correctamente.
         <?php endif; ?>
+    </div>
+<?php endif; ?>
+<?php if (isset($_GET['import_error'])): ?>
+    <div class="alert alert-danger">
+        <?php
+        $importErrors = [
+            'no_file' => 'Elegí un archivo .xlsx antes de importar.',
+            'bad_format' => 'No pudimos leer ese archivo. Asegurate de que sea un .xlsx válido (podés usar la plantilla que descargaste).',
+            'empty' => 'El archivo no tiene filas de datos para importar.',
+            'all_failed' => 'Ninguna fila se pudo importar. Revisá que "Nombre" y "Precio" estén completos y que el precio sea un número.',
+        ];
+        echo $importErrors[$_GET['import_error']] ?? 'No se pudo importar el archivo. Intentá de nuevo.';
+        ?>
     </div>
 <?php endif; ?>
 <?php if (isset($_GET['error'])): ?>
@@ -74,6 +97,43 @@ sort($brands);
                     <div class="small text-secondary">Ej: Royal Canin Mini Adulto en 1kg, 3kg, 7.5kg, 15kg.</div>
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="importProductsModal" tabindex="-1" aria-labelledby="importProductsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="<?= BASE_URL ?>/process/product_import_process.php" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importProductsModalLabel"><i class="bi bi-file-earmark-excel me-2"></i>Importar productos desde Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">
+                        Subí un archivo <strong>.xlsx</strong> con una fila por producto. La primera fila tiene que
+                        ser el encabezado, igual que en la plantilla.
+                    </p>
+                    <p class="mb-3">
+                        <a href="<?= BASE_URL ?>/product_import_template.php" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-download"></i> Descargar plantilla de ejemplo
+                        </a>
+                    </p>
+                    <div class="mb-3">
+                        <label for="import_file" class="form-label">Archivo Excel (.xlsx)</label>
+                        <input type="file" id="import_file" name="import_file" class="form-control" accept=".xlsx" required>
+                    </div>
+                    <div class="small text-secondary">
+                        Columnas: <strong>Nombre</strong> y <strong>Precio</strong> son obligatorias. SKU, Categoría,
+                        Marca, Costo, Stock y Descripción son opcionales. Las filas sin Nombre o Precio válido se
+                        omiten (no frenan el resto de la importación).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Importar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -265,6 +325,7 @@ sort($brands);
                 <th>Marca</th>
                 <th class="text-end">Precio</th>
                 <th class="text-end">Costo</th>
+                <th class="text-end">Ganancia</th>
                 <th class="text-end">Stock</th>
                 <th>Tipo</th>
                 <th>Estado</th>
@@ -290,6 +351,14 @@ sort($brands);
                     <td><?= htmlspecialchars($product['brand'] ?? '—') ?></td>
                     <td class="text-end">$<?= number_format((float) $product['price'], 2) ?></td>
                     <td class="text-end">$<?= number_format((float) $product['cost'], 2) ?></td>
+                    <?php
+                        $profitAmount = (float) $product['price'] - (float) $product['cost'];
+                        $profitMargin = (float) $product['price'] > 0 ? ($profitAmount / (float) $product['price']) * 100 : 0;
+                    ?>
+                    <td class="text-end">
+                        <span class="<?= $profitAmount < 0 ? 'text-danger' : 'text-success' ?> fw-semibold">$<?= number_format($profitAmount, 2) ?></span>
+                        <div class="text-secondary small"><?= number_format($profitMargin, 0) ?>%</div>
+                    </td>
                     <td class="text-end">
                         <span class="badge <?= (float) $product['stock_quantity'] <= 5 ? 'bg-danger' : 'bg-success-subtle text-success-emphasis' ?>">
                             <?= Product::formatQuantity($product['stock_quantity']) ?>
@@ -308,7 +377,7 @@ sort($brands);
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="11" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="12" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>
