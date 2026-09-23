@@ -43,13 +43,16 @@ class ContactMessage
     /**
      * Unread count for the navbar badge: catalog_chat scoped to the
      * current tenant, plus live_chat scoped to the current user's own
-     * conversation with support. Never a global, cross-tenant count.
+     * conversation with support — unless $allLiveChat (the support-admin
+     * account), which counts every business's live_chat unread.
      */
-    public static function countUnread(?int $tenantId = null, ?string $liveChatEmail = null): int
+    public static function countUnread(?int $tenantId = null, ?string $liveChatEmail = null, bool $allLiveChat = false): int
     {
         $count = self::countUnreadBySource('catalog_chat', $tenantId);
 
-        if ($liveChatEmail !== null && $liveChatEmail !== '') {
+        if ($allLiveChat) {
+            $count += self::countUnreadBySource('live_chat');
+        } elseif ($liveChatEmail !== null && $liveChatEmail !== '') {
             $stmt = self::db()->prepare(
                 "SELECT COUNT(*) FROM contact_messages WHERE source = 'live_chat' AND email = :email AND sender = 'visitor' AND status = 'unread'"
             );

@@ -8,12 +8,14 @@ require_once __DIR__ . '/../includes/header.php';
 $tenantId = currentTenantId();
 $currentUser = User::find(currentUserId());
 $currentUserEmail = $currentUser['email'] ?? '';
+$isSupportAdmin = !empty($currentUser['is_support_admin']);
 $catalogConversations = ContactMessage::conversationsBySourceByToken('catalog_chat', $tenantId);
 // live_chat (soporte técnico) no tiene tenant_id: cada usuario solo ve su
-// propia conversación con soporte, nunca la de otro negocio.
-$supportConversations = $currentUserEmail !== ''
-    ? ContactMessage::conversationsBySource('live_chat', null, $currentUserEmail)
-    : [];
+// propia conversación con soporte, nunca la de otro negocio — salvo la
+// cuenta de administrador de soporte, que ve y responde todas.
+$supportConversations = $isSupportAdmin
+    ? ContactMessage::conversationsBySource('live_chat')
+    : ($currentUserEmail !== '' ? ContactMessage::conversationsBySource('live_chat', null, $currentUserEmail) : []);
 
 // catalog_chat conversations are keyed by an anonymous per-browser token (no
 // email is collected anymore), so the merchant identifies them by name/phone
@@ -86,7 +88,10 @@ function renderConversationsTable(array $conversations, string $source): void
 <h2 class="h5 fw-semibold mb-3"><i class="bi bi-chat-dots-fill"></i> Chat del catálogo (ventas)</h2>
 <?php renderConversationsTable($catalogConversations, 'catalog_chat'); ?>
 
-<h2 class="h5 fw-semibold mb-3"><i class="bi bi-headset"></i> Soporte técnico (Asistente SixSeven)</h2>
+<h2 class="h5 fw-semibold mb-3">
+    <i class="bi bi-headset"></i> Soporte técnico (Asistente SixSeven)
+    <?php if ($isSupportAdmin): ?><span class="badge bg-secondary-subtle text-secondary-emphasis fw-normal">Todos los negocios</span><?php endif; ?>
+</h2>
 <?php renderConversationsTable($supportConversations, 'live_chat'); ?>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

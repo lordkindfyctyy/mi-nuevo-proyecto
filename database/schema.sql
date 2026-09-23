@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(30) NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('owner', 'admin', 'employee') NOT NULL DEFAULT 'employee',
+    is_support_admin TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

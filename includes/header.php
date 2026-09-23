@@ -7,7 +7,11 @@ if (isLoggedIn()) {
     require_once __DIR__ . '/../src/models/ContactMessage.php';
     require_once __DIR__ . '/../src/models/User.php';
     $headerCurrentUser = User::find(currentUserId());
-    $unreadMessages = ContactMessage::countUnread(currentTenantId(), $headerCurrentUser['email'] ?? null);
+    $unreadMessages = ContactMessage::countUnread(
+        currentTenantId(),
+        $headerCurrentUser['email'] ?? null,
+        !empty($headerCurrentUser['is_support_admin'])
+    );
 }
 ?>
 <!DOCTYPE html>

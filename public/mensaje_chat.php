@@ -12,16 +12,20 @@ if (!in_array($source, ['live_chat', 'catalog_chat'], true)) {
 
 // catalog_chat conversations are keyed by an anonymous per-browser token (no
 // email is collected) and scoped to the current tenant. live_chat (tech
-// support) is global and keyed by email — the email MUST come from the
-// logged-in session, never from the query string, or any user could open
-// (and even reply into) another business's support conversation.
+// support) is global and keyed by email — for a regular user the email
+// MUST come from the logged-in session, never from the query string, or
+// they could open (and even reply into) another business's support
+// conversation. Only the support-admin account (is_support_admin) is
+// trusted to pick any email, since that account is the one meant to
+// answer every business's support thread.
 $keyedByToken = $source === 'catalog_chat';
 if ($keyedByToken) {
     $key = trim($_GET['token'] ?? '');
     $scopeTenantId = currentTenantId();
 } else {
     $currentUser = User::find(currentUserId());
-    $key = $currentUser['email'] ?? '';
+    $isSupportAdmin = !empty($currentUser['is_support_admin']);
+    $key = $isSupportAdmin ? trim($_GET['email'] ?? '') : ($currentUser['email'] ?? '');
     $scopeTenantId = null;
 }
 
