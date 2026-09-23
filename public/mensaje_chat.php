@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/ContactMessage.php';
+require_once __DIR__ . '/../src/models/User.php';
 requireLogin();
 
 $source = $_GET['source'] ?? 'live_chat';
@@ -10,11 +11,19 @@ if (!in_array($source, ['live_chat', 'catalog_chat'], true)) {
 }
 
 // catalog_chat conversations are keyed by an anonymous per-browser token (no
-// email is collected); live_chat (tech support) is still keyed by email and
-// is global, not scoped to a tenant.
+// email is collected) and scoped to the current tenant. live_chat (tech
+// support) is global and keyed by email — the email MUST come from the
+// logged-in session, never from the query string, or any user could open
+// (and even reply into) another business's support conversation.
 $keyedByToken = $source === 'catalog_chat';
-$key = trim($keyedByToken ? ($_GET['token'] ?? '') : ($_GET['email'] ?? ''));
-$scopeTenantId = $keyedByToken ? currentTenantId() : null;
+if ($keyedByToken) {
+    $key = trim($_GET['token'] ?? '');
+    $scopeTenantId = currentTenantId();
+} else {
+    $currentUser = User::find(currentUserId());
+    $key = $currentUser['email'] ?? '';
+    $scopeTenantId = null;
+}
 
 if ($key === '') {
     header('Location: ' . BASE_URL . '/mensajes.php');

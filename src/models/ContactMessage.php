@@ -40,9 +40,24 @@ class ContactMessage
         return $stmt->fetchAll();
     }
 
-    public static function countUnread(): int
+    /**
+     * Unread count for the navbar badge: catalog_chat scoped to the
+     * current tenant, plus live_chat scoped to the current user's own
+     * conversation with support. Never a global, cross-tenant count.
+     */
+    public static function countUnread(?int $tenantId = null, ?string $liveChatEmail = null): int
     {
-        return (int) self::db()->query("SELECT COUNT(*) FROM contact_messages WHERE status = 'unread'")->fetchColumn();
+        $count = self::countUnreadBySource('catalog_chat', $tenantId);
+
+        if ($liveChatEmail !== null && $liveChatEmail !== '') {
+            $stmt = self::db()->prepare(
+                "SELECT COUNT(*) FROM contact_messages WHERE source = 'live_chat' AND email = :email AND sender = 'visitor' AND status = 'unread'"
+            );
+            $stmt->execute(['email' => $liveChatEmail]);
+            $count += (int) $stmt->fetchColumn();
+        }
+
+        return $count;
     }
 
     public static function countUnreadBySource(string $source, ?int $tenantId = null): int
@@ -197,12 +212,20 @@ class ContactMessage
 
     /**
      * One row per conversation (grouped by email) on one channel, newest
-     * first, for the admin inbox list.
+     * first, for the admin inbox list. Pass $email to scope to a single
+     * conversation (e.g. live_chat, which has no tenant_id to filter by —
+     * without this, any logged-in user could list every other business's
+     * support thread).
      */
-    public static function conversationsBySource(string $source, ?int $tenantId = null): array
+    public static function conversationsBySource(string $source, ?int $tenantId = null, ?string $email = null): array
     {
         [$where, $params] = self::whereClause($source, $tenantId);
         $where .= " AND email IS NOT NULL AND email <> ''";
+
+        if ($email !== null) {
+            $where .= ' AND email = :filter_email';
+            $params['filter_email'] = $email;
+        }
 
         $sql = "SELECT
                     cm.email,

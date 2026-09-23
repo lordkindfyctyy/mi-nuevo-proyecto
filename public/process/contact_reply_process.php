@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/tenant_context.php';
 require_once __DIR__ . '/../../src/models/ContactMessage.php';
+require_once __DIR__ . '/../../src/models/User.php';
 requireLogin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -16,9 +17,17 @@ if (!in_array($source, ['live_chat', 'catalog_chat'], true)) {
 }
 
 // catalog_chat conversations are keyed by an anonymous per-browser token (no
-// email is collected); live_chat (tech support) is still keyed by email.
+// email is collected); live_chat (tech support) is keyed by email, always
+// the logged-in user's own — never trust the client for this, or any user
+// could reply into (and thus impersonate support inside) another
+// business's conversation.
 $keyedByToken = $source === 'catalog_chat';
-$key = trim($keyedByToken ? ($_POST['token'] ?? '') : ($_POST['email'] ?? ''));
+if ($keyedByToken) {
+    $key = trim($_POST['token'] ?? '');
+} else {
+    $currentUser = User::find(currentUserId());
+    $key = $currentUser['email'] ?? '';
+}
 
 $redirect = BASE_URL . '/mensaje_chat.php?source=' . urlencode($source) . '&' . ($keyedByToken ? 'token=' : 'email=') . urlencode($key);
 

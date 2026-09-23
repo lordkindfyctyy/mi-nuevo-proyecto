@@ -1,13 +1,19 @@
 <?php
 require_once __DIR__ . '/../includes/tenant_context.php';
 require_once __DIR__ . '/../src/models/ContactMessage.php';
+require_once __DIR__ . '/../src/models/User.php';
 requireLogin();
 require_once __DIR__ . '/../includes/header.php';
 
 $tenantId = currentTenantId();
+$currentUser = User::find(currentUserId());
+$currentUserEmail = $currentUser['email'] ?? '';
 $catalogConversations = ContactMessage::conversationsBySourceByToken('catalog_chat', $tenantId);
-$supportConversations = ContactMessage::conversationsBySource('live_chat');
-$contactMessages = ContactMessage::allBySource('contact_form');
+// live_chat (soporte técnico) no tiene tenant_id: cada usuario solo ve su
+// propia conversación con soporte, nunca la de otro negocio.
+$supportConversations = $currentUserEmail !== ''
+    ? ContactMessage::conversationsBySource('live_chat', null, $currentUserEmail)
+    : [];
 
 // catalog_chat conversations are keyed by an anonymous per-browser token (no
 // email is collected anymore), so the merchant identifies them by name/phone
@@ -82,61 +88,5 @@ function renderConversationsTable(array $conversations, string $source): void
 
 <h2 class="h5 fw-semibold mb-3"><i class="bi bi-headset"></i> Soporte técnico (Asistente SixSeven)</h2>
 <?php renderConversationsTable($supportConversations, 'live_chat'); ?>
-
-<h2 class="h5 fw-semibold mb-3">Formulario de contacto</h2>
-<div class="table-responsive">
-    <table class="table align-middle">
-        <thead>
-            <tr>
-                <th>Estado</th>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Mensaje</th>
-                <th>Fecha</th>
-                <th class="text-end">Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($contactMessages as $msg): ?>
-                <tr class="<?= $msg['status'] === 'unread' ? 'fw-semibold' : '' ?>">
-                    <td>
-                        <?php if ($msg['status'] === 'unread'): ?>
-                            <span class="badge text-bg-primary">No leído</span>
-                        <?php else: ?>
-                            <span class="badge text-bg-secondary">Leído</span>
-                        <?php endif; ?>
-                    </td>
-                    <td><?= htmlspecialchars($msg['name']) ?></td>
-                    <td>
-                        <?php if (!empty($msg['email'])): ?>
-                            <a href="mailto:<?= htmlspecialchars($msg['email']) ?>"><?= htmlspecialchars($msg['email']) ?></a>
-                        <?php else: ?>
-                            <span class="text-secondary">—</span>
-                        <?php endif; ?>
-                    </td>
-                    <td style="max-width: 360px; white-space: pre-wrap;"><?= htmlspecialchars($msg['message']) ?></td>
-                    <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($msg['created_at']))) ?></td>
-                    <td class="text-end">
-                        <?php if ($msg['status'] === 'unread'): ?>
-                            <form method="POST" action="<?= BASE_URL ?>/process/contact_message_process.php" class="d-inline">
-                                <input type="hidden" name="action" value="mark_read">
-                                <input type="hidden" name="id" value="<?= (int) $msg['id'] ?>">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">Marcar leído</button>
-                            </form>
-                        <?php endif; ?>
-                        <form method="POST" action="<?= BASE_URL ?>/process/contact_message_process.php" class="d-inline" onsubmit="return confirm('¿Eliminar este mensaje?');">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="id" value="<?= (int) $msg['id'] ?>">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                        </form>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if (!$contactMessages): ?>
-                <tr><td colspan="6" class="text-center text-secondary py-4">No hay mensajes recibidos todavía.</td></tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
-</div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

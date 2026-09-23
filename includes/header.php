@@ -5,7 +5,9 @@ require_once __DIR__ . '/tenant_context.php';
 $unreadMessages = 0;
 if (isLoggedIn()) {
     require_once __DIR__ . '/../src/models/ContactMessage.php';
-    $unreadMessages = ContactMessage::countUnread();
+    require_once __DIR__ . '/../src/models/User.php';
+    $headerCurrentUser = User::find(currentUserId());
+    $unreadMessages = ContactMessage::countUnread(currentTenantId(), $headerCurrentUser['email'] ?? null);
 }
 ?>
 <!DOCTYPE html>
