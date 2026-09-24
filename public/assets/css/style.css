@@ -131,7 +131,9 @@ body {
     color: var(--color-primary);
 }
 
-.site-header nav ul {
+/* :not(.dropdown-menu) para no pisar el display:none/show de Bootstrap en
+   el menú desplegable "Más" del navbar — si no, queda siempre abierto. */
+.site-header nav ul:not(.dropdown-menu) {
     display: flex;
     gap: 1.25rem;
     list-style: none;

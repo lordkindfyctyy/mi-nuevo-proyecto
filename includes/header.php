@@ -54,20 +54,20 @@ if (isLoggedIn()) {
                         <li class="nav-item">
                             <a class="nav-link <?= $currentPage === 'clientes.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/clientes.php">Clientes</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= $currentPage === 'proveedores.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/proveedores.php">Proveedores</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= in_array($currentPage, ['compras.php', 'comprar.php'], true) ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/compras.php">Compras</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= $currentPage === 'reportes.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/reportes.php">Reportes</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= $currentPage === 'about.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/about.php">Acerca de</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= $currentPage === 'contact.php' ? 'active fw-semibold' : '' ?>" href="<?= BASE_URL ?>/contact.php">Contacto</a>
+                        <?php
+                            $moreNavPages = ['proveedores.php', 'compras.php', 'comprar.php', 'reportes.php', 'about.php', 'contact.php'];
+                            $moreNavActive = in_array($currentPage, $moreNavPages, true);
+                        ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle <?= $moreNavActive ? 'active fw-semibold' : '' ?>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Más</a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item <?= $currentPage === 'proveedores.php' ? 'active' : '' ?>" href="<?= BASE_URL ?>/proveedores.php">Proveedores</a></li>
+                                <li><a class="dropdown-item <?= in_array($currentPage, ['compras.php', 'comprar.php'], true) ? 'active' : '' ?>" href="<?= BASE_URL ?>/compras.php">Compras</a></li>
+                                <li><a class="dropdown-item <?= $currentPage === 'reportes.php' ? 'active' : '' ?>" href="<?= BASE_URL ?>/reportes.php">Reportes</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item <?= $currentPage === 'about.php' ? 'active' : '' ?>" href="<?= BASE_URL ?>/about.php">Acerca de</a></li>
+                                <li><a class="dropdown-item <?= $currentPage === 'contact.php' ? 'active' : '' ?>" href="<?= BASE_URL ?>/contact.php">Contacto</a></li>
+                            </ul>
                         </li>
                         <?php if (isLoggedIn()): ?>
                             <li class="nav-item">
