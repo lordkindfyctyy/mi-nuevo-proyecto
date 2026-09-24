@@ -89,6 +89,17 @@ class Tenant
         return self::db()->prepare($sql)->execute($params);
     }
 
+    /**
+     * Marca que el negocio pidió activar el asistente de IA (add-on pago),
+     * para no repetirle el cartel de "ya lo pediste" cada vez que abre el
+     * modal de compartir catálogo.
+     */
+    public static function markAiAssistantRequested(int $id): void
+    {
+        self::db()->prepare('UPDATE tenants SET ai_assistant_requested_at = NOW() WHERE id = :id')
+            ->execute(['id' => $id]);
+    }
+
     public static function delete(int $id): bool
     {
         $stmt = self::db()->prepare('DELETE FROM tenants WHERE id = :id');

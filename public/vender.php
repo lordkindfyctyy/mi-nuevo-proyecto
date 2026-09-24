@@ -296,14 +296,37 @@ function pos_render_nav(array $items, string $currentPage): void
                     <hr>
 
                     <h2 class="h6 fw-semibold">Asistente de IA en el catálogo</h2>
-                    <p class="text-secondary small mb-2">Responde automáticamente las preguntas de tus clientes en el chat del catálogo (precios, stock, productos), usando tu inventario real. Vos siempre podés sumarte a la conversación a mano.</p>
-                    <form method="POST" action="<?= BASE_URL ?>/process/tenant_process.php">
-                        <input type="hidden" name="action" value="update_ai_assistant">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="ai-assistant-toggle" name="ai_assistant_enabled" value="1" <?= !empty($tenant['ai_assistant_enabled']) ? 'checked' : '' ?> onchange="this.form.requestSubmit()">
-                            <label class="form-check-label small" for="ai-assistant-toggle">Activar respuestas automáticas con IA</label>
+                    <?php if (!empty($tenant['ai_assistant_granted_at'])): ?>
+                        <p class="text-secondary small mb-2">Responde automáticamente las preguntas de tus clientes en el chat del catálogo (precios, stock, productos), usando tu inventario real. Vos siempre podés sumarte a la conversación a mano.</p>
+                        <form method="POST" action="<?= BASE_URL ?>/process/tenant_process.php">
+                            <input type="hidden" name="action" value="update_ai_assistant">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="ai-assistant-toggle" name="ai_assistant_enabled" value="1" <?= !empty($tenant['ai_assistant_enabled']) ? 'checked' : '' ?> onchange="this.form.requestSubmit()">
+                                <label class="form-check-label small" for="ai-assistant-toggle">Activar respuestas automáticas con IA</label>
+                            </div>
+                        </form>
+                    <?php else: ?>
+                        <div class="border rounded-3 p-3">
+                            <div class="d-flex align-items-start gap-2">
+                                <div class="fs-4" aria-hidden="true">🤖</div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="fw-semibold small">Servicio adicional</span>
+                                        <span class="badge bg-primary-subtle text-primary-emphasis">$5.000/mes</span>
+                                    </div>
+                                    <p class="text-secondary small mb-2">Un asistente responde automático las preguntas de tus clientes en el chat del catálogo (precios, stock, productos), usando tu inventario real, las 24 horas.</p>
+                                    <?php if (!empty($tenant['ai_assistant_requested_at'])): ?>
+                                        <span class="badge bg-success-subtle text-success-emphasis fw-normal">Ya lo solicitaste, te vamos a contactar para activarlo.</span>
+                                    <?php else: ?>
+                                        <form method="POST" action="<?= BASE_URL ?>/process/tenant_process.php">
+                                            <input type="hidden" name="action" value="request_ai_assistant">
+                                            <button type="submit" class="btn btn-primary btn-sm">Quiero activarlo</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </div>
-                    </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
