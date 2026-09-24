@@ -23,7 +23,7 @@ function gemini_catalog_reply(array $tenant, array $products, array $recentMessa
 
     $catalogLines = [];
     foreach ($products as $product) {
-        if (($product['status'] ?? 'active') !== 'active') {
+        if (($product['status'] ?? 'active') !== 'active' || empty($product['show_in_catalog'])) {
             continue;
         }
         if (count($catalogLines) >= 200) {

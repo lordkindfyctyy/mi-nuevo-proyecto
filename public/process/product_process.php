@@ -42,6 +42,7 @@ try {
             'cost' => (float) ($_POST['cost'] ?? 0),
             'sale_unit' => $_POST['sale_unit'] ?? 'unit',
             'stock_quantity' => (float) ($_POST['stock_quantity'] ?? 0),
+            'show_in_catalog' => isset($_POST['show_in_catalog']) ? 1 : 0,
         ]);
 
         header('Location: ' . BASE_URL . '/productos.php?success=created');
@@ -91,6 +92,7 @@ try {
             'cost' => (float) ($_POST['cost'] ?? 0),
             'sale_unit' => $_POST['sale_unit'] ?? 'unit',
             'stock_quantity' => (float) ($_POST['stock_quantity'] ?? 0),
+            'show_in_catalog' => isset($_POST['show_in_catalog']) ? 1 : 0,
         ]);
 
         header('Location: ' . BASE_URL . '/productos.php?success=updated');

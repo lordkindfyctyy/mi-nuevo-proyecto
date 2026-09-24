@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS products (
     sale_unit ENUM('unit', 'weight') NOT NULL DEFAULT 'unit',
     stock_quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    show_in_catalog TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_products_tenant_sku (tenant_id, sku),

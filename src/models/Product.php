@@ -12,8 +12,8 @@ class Product
     public static function create(int $tenantId, string $name, float $price, array $data = []): int
     {
         $stmt = self::db()->prepare(
-            'INSERT INTO products (tenant_id, name, sku, description, category, brand, image_url, imagen, price, cost, sale_unit, stock_quantity)
-             VALUES (:tenant_id, :name, :sku, :description, :category, :brand, :image_url, :imagen, :price, :cost, :sale_unit, :stock_quantity)'
+            'INSERT INTO products (tenant_id, name, sku, description, category, brand, image_url, imagen, price, cost, sale_unit, stock_quantity, show_in_catalog)
+             VALUES (:tenant_id, :name, :sku, :description, :category, :brand, :image_url, :imagen, :price, :cost, :sale_unit, :stock_quantity, :show_in_catalog)'
         );
         $stmt->execute([
             'tenant_id' => $tenantId,
@@ -28,6 +28,7 @@ class Product
             'cost' => $data['cost'] ?? 0,
             'sale_unit' => ($data['sale_unit'] ?? 'unit') === 'weight' ? 'weight' : 'unit',
             'stock_quantity' => $data['stock_quantity'] ?? 0,
+            'show_in_catalog' => array_key_exists('show_in_catalog', $data) ? (int) (bool) $data['show_in_catalog'] : 1,
         ]);
 
         return (int) self::db()->lastInsertId();
@@ -68,7 +69,7 @@ class Product
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'sku', 'description', 'category', 'brand', 'image_url', 'imagen', 'price', 'cost', 'sale_unit', 'stock_quantity', 'status'] as $field) {
+        foreach (['name', 'sku', 'description', 'category', 'brand', 'image_url', 'imagen', 'price', 'cost', 'sale_unit', 'stock_quantity', 'status', 'show_in_catalog'] as $field) {
             if (array_key_exists($field, $data)) {
                 $value = $field === 'sale_unit' ? (($data[$field] ?? 'unit') === 'weight' ? 'weight' : 'unit') : $data[$field];
                 $fields[] = "$field = :$field";

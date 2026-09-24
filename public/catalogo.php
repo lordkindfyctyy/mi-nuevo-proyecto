@@ -29,7 +29,7 @@ if (!$tenant) {
 }
 
 $products = Product::allByTenant((int) $tenant['id']);
-$products = array_values(array_filter($products, fn($p) => $p['status'] === 'active'));
+$products = array_values(array_filter($products, fn($p) => $p['status'] === 'active' && !empty($p['show_in_catalog'])));
 
 $productsData = array_map(fn($p) => [
     'id' => (int) $p['id'],

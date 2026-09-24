@@ -217,6 +217,13 @@ sort($brands);
                 <label for="description" class="form-label">Descripción corta</label>
                 <textarea id="description" name="description" class="form-control" rows="2"><?= htmlspecialchars($editing['description'] ?? '') ?></textarea>
             </div>
+            <div class="col-12">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="show_in_catalog" name="show_in_catalog" value="1" <?= ($editing === null || !empty($editing['show_in_catalog'])) ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="show_in_catalog">Mostrar en el catálogo online</label>
+                    <div class="form-text">Desactivalo si es un producto que solo vendés por mostrador y no querés que tus clientes lo vean en el catálogo.</div>
+                </div>
+            </div>
             <div class="col-12 d-flex gap-2">
                 <button type="submit" class="btn btn-primary rounded-pill px-4"><?= $editing ? 'Guardar cambios' : 'Agregar producto' ?></button>
                 <?php if ($editing): ?>
@@ -364,6 +371,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p id="variantTableEmpty" class="text-secondary text-center py-3">Elegí un tipo de variante arriba para empezar a agregar presentaciones.</p>
             </div>
 
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="variant_show_in_catalog" name="show_in_catalog" value="1" checked>
+                <label class="form-check-label" for="variant_show_in_catalog">Mostrar en el catálogo online</label>
+                <div class="form-text">Aplica a todas las presentaciones. Desactivalo si son productos que solo vendés por mostrador.</div>
+            </div>
+
             <div class="d-flex gap-2 mt-3">
                 <button type="submit" class="btn btn-primary rounded-pill px-4" id="submitVariantProductBtn" disabled>Guardar producto con variantes</button>
                 <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="cancelVariantProductBtn">Cancelar</button>
@@ -397,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th class="text-end">Stock</th>
                 <th>Tipo</th>
                 <th>Estado</th>
+                <th>Catálogo</th>
                 <th class="text-end">Acciones</th>
             </tr>
         </thead>
@@ -434,6 +448,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                     <td><?= ($product['sale_unit'] ?? 'unit') === 'weight' ? 'Peso' : 'Unidad' ?></td>
                     <td><?= $product['status'] === 'active' ? 'Activo' : 'Inactivo' ?></td>
+                    <td>
+                        <?php if (!empty($product['show_in_catalog'])): ?>
+                            <span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-eye"></i> Visible</span>
+                        <?php else: ?>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-eye-slash"></i> Solo mostrador</span>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-end">
                         <a href="<?= BASE_URL ?>/productos.php?edit=<?= (int) $product['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>
                         <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" class="d-inline" onsubmit="return confirm('¿Eliminar este producto?');">
@@ -445,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="12" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="13" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>
