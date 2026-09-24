@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>Estado</th>
                 <th>Catálogo</th>
                 <th>Creado</th>
-                <th class="text-end">Acciones</th>
+                <th class="text-end sticky-col">Acciones</th>
             </tr>
         </thead>
         <tbody id="product-table-body">
@@ -456,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <?php endif; ?>
                     </td>
                     <td class="text-secondary small text-nowrap"><?= !empty($product['created_at']) ? htmlspecialchars(date('d/m/Y', strtotime($product['created_at']))) : '—' ?></td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap sticky-col">
                         <a href="<?= BASE_URL ?>/productos.php?edit=<?= (int) $product['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>
                         <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" class="d-inline" onsubmit="return confirm('¿Eliminar este producto?');">
                             <input type="hidden" name="action" value="delete">
@@ -557,6 +557,22 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <style>
 .stock-inline-input.flash-error { border-color: #dc3545 !important; background-color: #f8d7da; }
+
+/* La columna de Acciones queda pegada a la derecha del scroll de la tabla,
+   para no tener que desplazarse hasta el final para editar o eliminar un
+   producto — y una barra de scroll más fina/prolija en vez de la del
+   sistema operativo. */
+.sticky-col {
+    position: sticky;
+    right: 0;
+    background: #fff;
+    box-shadow: -6px 0 6px -6px rgba(0, 0, 0, .15);
+}
+thead .sticky-col { z-index: 2; }
+.table-responsive { scrollbar-width: thin; scrollbar-color: #ced4da transparent; }
+.table-responsive::-webkit-scrollbar { height: 8px; }
+.table-responsive::-webkit-scrollbar-track { background: transparent; }
+.table-responsive::-webkit-scrollbar-thumb { background-color: #ced4da; border-radius: 999px; }
 </style>
 <?php endif; ?>
 
