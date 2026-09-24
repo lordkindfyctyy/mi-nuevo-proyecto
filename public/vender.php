@@ -39,6 +39,16 @@ if (isset($_GET['success'], $_GET['sale']) && $tenantId) {
 }
 $catalogUrl = $tenantId ? BASE_URL . '/catalogo.php?t=' . Tenant::getOrCreatePublicToken($tenantId) : null;
 
+$lowStockProducts = [];
+if (!empty($_GET['low_stock']) && $tenantId) {
+    foreach (array_filter(array_map('intval', explode(',', $_GET['low_stock']))) as $lowStockId) {
+        $lowStockProduct = Product::findForTenant($lowStockId, $tenantId);
+        if ($lowStockProduct) {
+            $lowStockProducts[] = $lowStockProduct;
+        }
+    }
+}
+
 $currentPage = basename($_SERVER['SCRIPT_NAME']);
 
 $navItems = [
@@ -455,10 +465,13 @@ function pos_render_nav(array $items, string $currentPage): void
                     </button>
                 </div>
             </div>
-            <?php if (!empty($_GET['low_stock'])): ?>
+            <?php if ($lowStockProducts): ?>
                 <div class="alert alert-warning alert-dismissible fade show" role="alert">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <strong>Actualizá tu stock:</strong> vendiste sin stock suficiente de <?= htmlspecialchars(implode(', ', explode('|', $_GET['low_stock']))) ?>.
+                    <strong>Actualizá tu stock:</strong> vendiste sin stock suficiente de
+                    <?php foreach ($lowStockProducts as $i => $lowStockProduct): ?>
+                        <?= $i > 0 ? ', ' : '' ?><a href="<?= BASE_URL ?>/productos.php?edit=<?= (int) $lowStockProduct['id'] ?>" class="alert-link fw-semibold"><?= htmlspecialchars($lowStockProduct['name']) ?> <i class="bi bi-box-arrow-up-right small"></i></a>
+                    <?php endforeach; ?>.
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
