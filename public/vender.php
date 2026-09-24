@@ -455,12 +455,18 @@ function pos_render_nav(array $items, string $currentPage): void
                     </button>
                 </div>
             </div>
+            <?php if (!empty($_GET['low_stock'])): ?>
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>Actualizá tu stock:</strong> vendiste sin stock suficiente de <?= htmlspecialchars(implode(', ', explode('|', $_GET['low_stock']))) ?>.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
         <?php if (isset($_GET['error'])): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <?php
                 $errors = [
-                    'stock' => 'No hay suficiente stock para uno o más productos seleccionados.',
                     'items' => 'Selecciona al menos un producto con cantidad mayor a cero.',
                     'split_payment' => 'Los montos de los dos medios de pago no suman el total de la venta. Revisalos e intenta de nuevo.',
                 ];
@@ -787,9 +793,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="product-card-desc">${escapeHtml(product.sku || product.description || '')}${product.saleUnit === 'weight' ? ' · por peso' : ''}</div>
             </div>
         `;
-        if (!outOfStock) {
-            card.addEventListener('click', () => addToCart(product.id));
-        }
+        // El cartel de "Sin stock" es solo informativo: se puede agregar
+        // igual para no frenar una venta por un conteo de stock
+        // desactualizado. El aviso de "actualizá tu stock" aparece después,
+        // al confirmar la venta.
+        card.addEventListener('click', () => addToCart(product.id));
         productGridEl.appendChild(card);
     }
 
@@ -837,8 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const { variant } = splitPresentation(product.name);
             const row = document.createElement('button');
             row.type = 'button';
-            row.className = 'btn btn-outline-secondary d-flex justify-content-between align-items-center text-start py-2'
-                + (outOfStock ? ' disabled' : '');
+            row.className = 'btn btn-outline-secondary d-flex justify-content-between align-items-center text-start py-2';
             row.innerHTML = `
                 <span class="fw-semibold">${escapeHtml(variant || product.name)}</span>
                 <span class="text-end d-flex align-items-center gap-2">
@@ -846,12 +853,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'}">${outOfStock ? 'Sin stock' : formatQty(remaining) + ' disp.'}</span>
                 </span>
             `;
-            if (!outOfStock) {
-                row.addEventListener('click', () => {
-                    addToCart(product.id);
-                    variantPickerModal.hide();
-                });
-            }
+            row.addEventListener('click', () => {
+                addToCart(product.id);
+                variantPickerModal.hide();
+            });
             variantPickerList.appendChild(row);
         });
 
@@ -861,7 +866,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function addToCart(id, qty = 1) {
         const product = findProduct(id);
         if (!product) return 0;
-        const toAdd = Math.min(qty, availableStock(product));
+        // No se limita al stock disponible: se permite vender igual aunque
+        // el stock cargado esté desactualizado, para no frenar la venta.
+        const toAdd = Math.max(0, qty);
         if (toAdd <= 0) return 0;
         const existing = cart.get(id);
         if (existing) {
@@ -881,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
         quantity = entry.product.saleUnit === 'weight'
             ? Math.round(quantity * 1000) / 1000
             : Math.round(quantity);
-        quantity = Math.max(0, Math.min(quantity, entry.product.stock));
+        quantity = Math.max(0, quantity);
         // Llegar a 0 no saca la fila del carrito: el producto sigue ahí,
         // en $0, hasta que se aumente de nuevo o se borre con el tacho.
         entry.quantity = quantity;
@@ -955,8 +962,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="cart-item-qty-block">
                         <div class="cart-qty">
                             <button type="button" class="qty-btn dec-btn" aria-label="Disminuir" ${quantity <= 0 ? 'disabled' : ''}>&minus;</button>
-                            <input type="number" step="${inputStepAttr}" min="0" max="${product.stock}" class="qty-input" value="${quantity}">
-                            <button type="button" class="qty-btn inc-btn" aria-label="Aumentar" ${quantity >= product.stock ? 'disabled' : ''}>+</button>
+                            <input type="number" step="${inputStepAttr}" min="0" class="qty-input" value="${quantity}">
+                            <button type="button" class="qty-btn inc-btn" aria-label="Aumentar">+</button>
                         </div>
                         <div class="cart-item-unit-price">
                             Precio por 1 ${unitLabel}: $<input type="number" step="0.01" min="0" class="price-input-inline" value="${unitPrice}" title="Editar precio de esta venta"><i class="bi bi-pencil-fill"></i>

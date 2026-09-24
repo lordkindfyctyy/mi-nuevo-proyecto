@@ -21,6 +21,7 @@ if (!$tenantId || !$userId) {
 $quantities = $_POST['quantity'] ?? [];
 $customPrices = $_POST['price'] ?? [];
 $items = [];
+$lowStockNames = [];
 
 foreach ($quantities as $productId => $qty) {
     $product = Product::findForTenant((int) $productId, $tenantId);
@@ -39,9 +40,11 @@ foreach ($quantities as $productId => $qty) {
         continue;
     }
 
+    // Se deja registrar la venta aunque no haya stock suficiente (el conteo
+    // puede estar desactualizado) para no frenarla en el momento — pero se
+    // guarda el nombre para avisar después que conviene actualizar el stock.
     if ($qty > (float) $product['stock_quantity']) {
-        header('Location: ' . BASE_URL . '/vender.php?error=stock');
-        exit;
+        $lowStockNames[] = $product['name'];
     }
 
     // El vendedor puede ajustar el precio de venta desde la canasta (ej.
@@ -130,7 +133,11 @@ if ($postedCustomerId > 0) {
 
 try {
     $saleId = Sale::create($tenantId, $userId, $items, $customerName, $paymentMethod, $customerId, $discountAmount, $splitPayments);
-    header('Location: ' . BASE_URL . '/vender.php?success=1&sale=' . $saleId);
+    $redirect = BASE_URL . '/vender.php?success=1&sale=' . $saleId;
+    if ($lowStockNames) {
+        $redirect .= '&low_stock=' . rawurlencode(implode('|', $lowStockNames));
+    }
+    header('Location: ' . $redirect);
     exit;
 } catch (Throwable $e) {
     header('Location: ' . BASE_URL . '/vender.php?error=1');
