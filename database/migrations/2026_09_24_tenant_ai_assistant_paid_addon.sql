@@ -9,3 +9,9 @@ ALTER TABLE tenants
     MODIFY COLUMN ai_assistant_enabled TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     ADD COLUMN ai_assistant_requested_at DATETIME NULL AFTER ai_assistant_enabled,
     ADD COLUMN ai_assistant_granted_at DATETIME NULL AFTER ai_assistant_requested_at;
+
+-- "Grandfathea" a los negocios que ya lo tenían activado antes de este
+-- cambio (ej. el tuyo), para que no pierdan el acceso ni el control del
+-- on/off — sin esto, el panel les mostraría el cartel de venta de nuevo
+-- aunque ya lo tengan andando.
+UPDATE tenants SET ai_assistant_granted_at = NOW() WHERE ai_assistant_enabled = 1;
