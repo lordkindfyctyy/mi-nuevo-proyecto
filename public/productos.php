@@ -412,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>Tipo</th>
                 <th>Estado</th>
                 <th>Catálogo</th>
+                <th>Creado</th>
                 <th class="text-end">Acciones</th>
             </tr>
         </thead>
@@ -443,9 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="text-secondary small"><?= number_format($profitMargin, 0) ?>%</div>
                     </td>
                     <td class="text-end">
-                        <span class="badge <?= (float) $product['stock_quantity'] <= 5 ? 'bg-danger' : 'bg-success-subtle text-success-emphasis' ?>">
-                            <?= Product::formatQuantity($product['stock_quantity']) ?>
-                        </span>
+                        <input type="number" step="0.001" min="0" class="form-control form-control-sm stock-inline-input <?= (float) $product['stock_quantity'] <= 5 ? 'border-danger text-danger fw-semibold' : '' ?>" style="width: 85px; display: inline-block;" data-product-id="<?= (int) $product['id'] ?>" value="<?= htmlspecialchars((string) (float) $product['stock_quantity']) ?>" title="Editar stock">
                     </td>
                     <td><?= ($product['sale_unit'] ?? 'unit') === 'weight' ? 'Peso' : 'Unidad' ?></td>
                     <td><?= $product['status'] === 'active' ? 'Activo' : 'Inactivo' ?></td>
@@ -456,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="badge bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-eye-slash"></i> Solo mostrador</span>
                         <?php endif; ?>
                     </td>
+                    <td class="text-secondary small text-nowrap"><?= !empty($product['created_at']) ? htmlspecialchars(date('d/m/Y', strtotime($product['created_at']))) : '—' ?></td>
                     <td class="text-end">
                         <a href="<?= BASE_URL ?>/productos.php?edit=<?= (int) $product['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>
                         <form method="POST" action="<?= BASE_URL ?>/process/product_process.php" class="d-inline" onsubmit="return confirm('¿Eliminar este producto?');">
@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
             <?php endforeach; ?>
             <?php if (!$products): ?>
-                <tr><td colspan="13" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
+                <tr><td colspan="14" class="text-center text-secondary py-4">No hay productos registrados todavía.</td></tr>
             <?php endif; ?>
         </tbody>
     </table>
@@ -493,8 +493,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
         emptyMessage.hidden = visibleCount > 0;
     });
+
+    // Editar el stock directo desde la lista, sin entrar a cada producto:
+    // al cambiar el valor y salir del campo (blur, Enter o flechitas), se
+    // guarda solo por fetch y se refleja el color de "stock bajo" al toque.
+    document.querySelectorAll('.stock-inline-input').forEach((input) => {
+        let lastSaved = input.value;
+
+        function flash(ok) {
+            input.classList.remove('border-success', 'border-danger', 'flash-error');
+            input.classList.add(ok ? 'border-success' : 'flash-error');
+            setTimeout(() => input.classList.remove('border-success', 'flash-error'), 700);
+        }
+
+        function refreshLowStockStyle() {
+            const low = parseFloat(input.value) <= 5;
+            input.classList.toggle('text-danger', low);
+            input.classList.toggle('fw-semibold', low);
+            if (!input.classList.contains('flash-error')) {
+                input.classList.toggle('border-danger', low);
+            }
+        }
+
+        input.addEventListener('change', async () => {
+            const value = input.value;
+            if (value === '' || isNaN(value) || parseFloat(value) < 0) {
+                input.value = lastSaved;
+                return;
+            }
+
+            input.disabled = true;
+            try {
+                const res = await fetch('<?= BASE_URL ?>/process/product_stock_process.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'id=' + encodeURIComponent(input.dataset.productId) + '&stock_quantity=' + encodeURIComponent(value),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    lastSaved = value;
+                    refreshLowStockStyle();
+                    flash(true);
+                } else {
+                    input.value = lastSaved;
+                    flash(false);
+                }
+            } catch (e) {
+                input.value = lastSaved;
+                flash(false);
+            } finally {
+                input.disabled = false;
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
+        });
+    });
 });
 </script>
+<style>
+.stock-inline-input.flash-error { border-color: #dc3545 !important; background-color: #f8d7da; }
+</style>
 <?php endif; ?>
 
 <?php if (!$editing): ?>
