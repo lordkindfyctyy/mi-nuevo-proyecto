@@ -131,6 +131,14 @@ define('SMTP_ENCRYPTION', app_config($overrides, 'SMTP_ENCRYPTION', 'tls'));
 define('SMTP_FROM_EMAIL', app_config($overrides, 'SMTP_FROM_EMAIL', SMTP_USER));
 define('SMTP_FROM_NAME', app_config($overrides, 'SMTP_FROM_NAME', APP_NAME));
 
+/**
+ * API key de Gemini (Google AI Studio) para el asistente de IA del chat del
+ * catálogo (includes/gemini_client.php). Sin esta variable configurada, el
+ * asistente simplemente no responde (el chat sigue funcionando normal, solo
+ * sin respuesta automática) — ver README_DESPLIEGUE.md.
+ */
+define('GEMINI_API_KEY', app_config($overrides, 'GEMINI_API_KEY', ''));
+
 error_reporting(E_ALL);
 ini_set('display_errors', APP_ENV === 'local' ? '1' : '0');
 ini_set('log_errors', '1');

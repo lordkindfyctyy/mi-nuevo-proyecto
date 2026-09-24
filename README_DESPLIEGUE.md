@@ -121,6 +121,15 @@ La app envía mails transaccionales (recuperación de contraseña) por SMTP aute
    - `SMTP_ENCRYPTION` = `tls`
 3. Si algún mail falla, el detalle específico de PHPMailer/SMTP queda en el log de errores de PHP (hPanel → Avanzado → Registro de errores de PHP), buscá líneas que empiecen con `[mailer:smtp]`.
 
+## 5.2. Configurar el asistente de IA del catálogo (Gemini)
+
+Cada negocio puede activar, desde "Compartir catálogo" en Vender, un asistente que responde automáticamente en el chat del catálogo usando su propio inventario. Sin `GEMINI_API_KEY` configurada, el chat sigue funcionando normal, solo sin respuesta automática.
+
+1. Generá una clave en [aistudio.google.com/apikey](https://aistudio.google.com/apikey) con la cuenta de Google que vas a usar para esto.
+2. Configurá esta variable de entorno (hPanel → Avanzado → Variables de entorno) o agregala a `config/config.local.php` (ver plantilla en `config/config.local.php.example`):
+   - `GEMINI_API_KEY` = tu clave de Google AI Studio
+3. Si el asistente no responde, el detalle queda en el log de errores de PHP, buscá líneas que empiecen con `[gemini]`.
+
 ## 6. Verificar el despliegue
 
 1. Entra a `https://tudominio.com` — deberías ver la página de inicio.

@@ -31,5 +31,12 @@ if ($action === 'update_whatsapp') {
     exit;
 }
 
+if ($action === 'update_ai_assistant') {
+    Tenant::update($tenantId, ['ai_assistant_enabled' => ($_POST['ai_assistant_enabled'] ?? '') === '1' ? 1 : 0]);
+
+    header('Location: ' . BASE_URL . '/vender.php?share_success=1');
+    exit;
+}
+
 header('Location: ' . BASE_URL . '/vender.php');
 exit;

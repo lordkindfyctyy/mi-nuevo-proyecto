@@ -271,7 +271,7 @@ function pos_render_nav(array $items, string $currentPage): void
                 </div>
                 <div class="modal-body">
                     <?php if (isset($_GET['share_success'])): ?>
-                        <div class="alert alert-success py-2">Número de WhatsApp actualizado.</div>
+                        <div class="alert alert-success py-2">Cambios guardados.</div>
                     <?php elseif (($_GET['share_error'] ?? '') === 'phone'): ?>
                         <div class="alert alert-danger py-2">Ingresa un número de teléfono válido (mínimo 8 dígitos).</div>
                     <?php endif; ?>
@@ -291,6 +291,18 @@ function pos_render_nav(array $items, string $currentPage): void
                         <input type="hidden" name="action" value="update_whatsapp">
                         <input type="tel" name="whatsapp_phone" class="form-control form-control-sm" placeholder="573001234567" value="<?= htmlspecialchars($tenant['whatsapp_phone'] ?? '') ?>">
                         <button type="submit" class="btn btn-primary btn-sm text-nowrap">Guardar</button>
+                    </form>
+
+                    <hr>
+
+                    <h2 class="h6 fw-semibold">Asistente de IA en el catálogo</h2>
+                    <p class="text-secondary small mb-2">Responde automáticamente las preguntas de tus clientes en el chat del catálogo (precios, stock, productos), usando tu inventario real. Vos siempre podés sumarte a la conversación a mano.</p>
+                    <form method="POST" action="<?= BASE_URL ?>/process/tenant_process.php">
+                        <input type="hidden" name="action" value="update_ai_assistant">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="ai-assistant-toggle" name="ai_assistant_enabled" value="1" <?= !empty($tenant['ai_assistant_enabled']) ? 'checked' : '' ?> onchange="this.form.requestSubmit()">
+                            <label class="form-check-label small" for="ai-assistant-toggle">Activar respuestas automáticas con IA</label>
+                        </div>
                     </form>
                 </div>
             </div>

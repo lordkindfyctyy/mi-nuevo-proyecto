@@ -37,4 +37,9 @@ return [
     'SMTP_ENCRYPTION' => null, // 'tls' o 'ssl'
     'SMTP_FROM_EMAIL' => null, // Por defecto usa SMTP_USER
     'SMTP_FROM_NAME' => null,  // Por defecto usa APP_NAME
+
+    // Asistente de IA del chat del catálogo (Gemini / Google AI Studio).
+    // Generá una clave en https://aistudio.google.com/apikey. Sin esto, el
+    // chat sigue funcionando pero sin respuesta automática.
+    'GEMINI_API_KEY' => null,
 ];

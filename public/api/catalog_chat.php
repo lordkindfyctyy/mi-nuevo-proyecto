@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../src/models/ContactMessage.php';
 require_once __DIR__ . '/../../src/models/Tenant.php';
+require_once __DIR__ . '/../../src/models/Product.php';
+require_once __DIR__ . '/../../includes/gemini_client.php';
+require_once __DIR__ . '/../../includes/debug_log.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -96,6 +99,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sender' => 'visitor',
             'widget_token' => $caller['token'],
         ]);
+
+        // Respuesta automática del asistente de IA (si el negocio la tiene
+        // activada): nunca debe romper el envío del mensaje del cliente, así
+        // que cualquier falla acá queda solo en el log.
+        try {
+            $tenant = Tenant::find($caller['tenantId']);
+            if (!empty($tenant['ai_assistant_enabled'])) {
+                $products = Product::allByTenant($caller['tenantId']);
+                $history = ContactMessage::conversationByToken('catalog_chat', $caller['token'], $caller['tenantId']);
+                $reply = gemini_catalog_reply($tenant, $products, $history, $message);
+
+                if ($reply !== null) {
+                    ContactMessage::create([
+                        'tenant_id' => $caller['tenantId'],
+                        'name' => $tenant['name'] ?? 'Asistente',
+                        'message' => "🤖 $reply",
+                        'source' => 'catalog_chat',
+                        'sender' => 'admin',
+                        'widget_token' => $caller['token'],
+                    ]);
+                }
+            }
+        } catch (Throwable $e) {
+            app_debug_log('[gemini_catalog_reply] ' . $e->getMessage());
+        }
+
         echo json_encode(['ok' => true]);
     } catch (Throwable $e) {
         http_response_code(500);
