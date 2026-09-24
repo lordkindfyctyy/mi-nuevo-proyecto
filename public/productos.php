@@ -342,6 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="small text-secondary">Agregar presentación:</span>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="Suelto">Suelto</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="1kg">1kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="1.5kg">1.5kg</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="3kg">3kg</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="7.5kg">7.5kg</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="15kg">15kg</button>
