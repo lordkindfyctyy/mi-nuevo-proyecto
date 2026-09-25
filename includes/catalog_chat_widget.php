@@ -100,6 +100,19 @@
         align-self: flex-start; background: #fff; color: #1f2937; border: 1px solid #e9ebee;
         border-bottom-left-radius: .3rem;
     }
+    .catalog-chat-bubble-visitor.catalog-chat-bubble-pending { opacity: .6; }
+
+    .catalog-chat-typing { display: inline-flex; align-items: center; gap: .25rem; padding: .15rem 0; }
+    .catalog-chat-typing span {
+        width: .4rem; height: .4rem; border-radius: 50%; background: #b7bcc4;
+        animation: catalog-chat-typing-bounce 1.2s infinite ease-in-out;
+    }
+    .catalog-chat-typing span:nth-child(2) { animation-delay: .15s; }
+    .catalog-chat-typing span:nth-child(3) { animation-delay: .3s; }
+    @keyframes catalog-chat-typing-bounce {
+        0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+        30% { transform: translateY(-.2rem); opacity: 1; }
+    }
 
     .catalog-chat-input-row {
         display: flex; align-items: flex-end; gap: .5rem; background: #fff; border: 1px solid #e0e3e8;
@@ -178,8 +191,10 @@
 <script>
 (function () {
     var CATALOG_TOKEN = <?= json_encode($catalogToken ?? '') ?>;
+    var AI_ENABLED = <?= !empty($tenant['ai_assistant_enabled']) ? 'true' : 'false' ?>;
     var STORAGE_KEY = 'sixseven_catalog_chat_identity';
     var POLL_MS = 8000;
+    var TYPING_TIMEOUT_MS = 20000;
 
     var toggle = document.getElementById('catalogChatToggle');
     var panel = document.getElementById('catalogChatPanel');
@@ -194,6 +209,10 @@
     var pollTimer = null;
     var lastMessageId = 0;
     var loaded = false;
+    var typingEl = null;
+    var typingTimeoutTimer = null;
+    var renderedIds = {};
+    var pollInFlight = false;
 
     function generateToken() {
         if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '');
@@ -224,8 +243,17 @@
     }
 
     function renderMessages(messages, append) {
-        if (!append) messagesEl.innerHTML = '';
+        if (!append) { messagesEl.innerHTML = ''; renderedIds = {}; }
         messages.forEach(function (m) {
+            // Dos polls pueden solaparse (el del intervalo de 8s y el que se
+            // dispara justo al mandar un mensaje) y devolver el mismo
+            // mensaje dos veces — sin esto, se veía duplicado en el chat.
+            if (renderedIds[m.id]) {
+                lastMessageId = Math.max(lastMessageId, m.id);
+                return;
+            }
+            renderedIds[m.id] = true;
+
             var bubble = document.createElement('div');
             bubble.className = 'catalog-chat-bubble catalog-chat-bubble-' + (m.sender === 'admin' ? 'admin' : 'visitor');
             var text = document.createElement('div');
@@ -241,6 +269,53 @@
         if (messages.length) messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // Feedback instantáneo al enviar: el propio mensaje aparece al toque
+    // (atenuado, como "enviando...") en vez de quedar la pantalla como
+    // congelada hasta que vuelva la respuesta. Se saca en cuanto el poll
+    // trae la versión real del mismo mensaje.
+    function appendPendingMessage(text) {
+        var bubble = document.createElement('div');
+        bubble.className = 'catalog-chat-bubble catalog-chat-bubble-visitor catalog-chat-bubble-pending';
+        bubble.dataset.pending = 'true';
+        var textEl = document.createElement('div');
+        textEl.textContent = text;
+        var time = document.createElement('time');
+        time.textContent = new Date().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        bubble.appendChild(textEl);
+        bubble.appendChild(time);
+        messagesEl.appendChild(bubble);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function clearPendingMessages() {
+        messagesEl.querySelectorAll('[data-pending="true"]').forEach(function (el) { el.remove(); });
+    }
+
+    // Solo tiene sentido mostrar "escribiendo..." cuando el negocio tiene el
+    // asistente de IA activado (si no, nadie va a responder automático y el
+    // indicador quedaría girando para siempre).
+    function showTyping() {
+        if (!AI_ENABLED) return;
+        hideTyping();
+        typingEl = document.createElement('div');
+        typingEl.className = 'catalog-chat-bubble catalog-chat-bubble-admin';
+        typingEl.innerHTML = '<div class="catalog-chat-typing"><span></span><span></span><span></span></div>';
+        messagesEl.appendChild(typingEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        typingTimeoutTimer = setTimeout(hideTyping, TYPING_TIMEOUT_MS);
+    }
+
+    function hideTyping() {
+        if (typingTimeoutTimer) {
+            clearTimeout(typingTimeoutTimer);
+            typingTimeoutTimer = null;
+        }
+        if (typingEl) {
+            typingEl.remove();
+            typingEl = null;
+        }
+    }
+
     function fetchQuery(params) {
         params.t = CATALOG_TOKEN;
         var qs = new URLSearchParams(params).toString();
@@ -250,12 +325,25 @@
     function pollForReplies() {
         var identity = getIdentity();
         if (!identity || !identity.token) return;
+        // El intervalo de 8s y el poll extra al mandar un mensaje pueden
+        // superponerse; con esto el segundo simplemente no arranca en vez
+        // de pisarse con el primero.
+        if (pollInFlight) return;
+        pollInFlight = true;
 
         fetchQuery({ after_id: lastMessageId, token: identity.token }).then(function (data) {
             if (data.ok && data.messages && data.messages.length) {
+                clearPendingMessages();
+                // Este poll puede traer solo la confirmación del propio
+                // mensaje (sin respuesta todavía) — el indicador de
+                // "escribiendo..." se saca recién cuando llega algo del
+                // vendedor/asistente, no antes.
+                var hasReply = data.messages.some(function (m) { return m.sender === 'admin'; });
+                if (hasReply) hideTyping();
                 renderMessages(data.messages, true);
             }
-        }).catch(function () { /* silent: next poll will retry */ });
+        }).catch(function () { /* silent: next poll will retry */ })
+            .finally(function () { pollInFlight = false; });
     }
 
     function startPolling() {
@@ -344,6 +432,15 @@
 
         var submitBtn = form.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
+        feedback.hidden = true;
+
+        // Se muestra al toque, sin esperar la ida y vuelta al servidor (que
+        // puede tardar unos segundos si el asistente de IA está pensando la
+        // respuesta) — así la conversación se siente fluida en vez de
+        // congelada.
+        appendPendingMessage(message);
+        showTyping();
+        form.reset();
 
         var body = new URLSearchParams();
         body.set('t', CATALOG_TOKEN);
@@ -356,14 +453,16 @@
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (data.ok) {
-                    form.reset();
-                    showFeedback('¡Mensaje enviado! Te responderemos a la brevedad.', false);
                     pollForReplies();
                 } else {
+                    hideTyping();
+                    clearPendingMessages();
                     showFeedback(data.error || 'No se pudo enviar tu consulta. Intentá de nuevo.', true);
                 }
             })
             .catch(function () {
+                hideTyping();
+                clearPendingMessages();
                 showFeedback('No se pudo enviar tu consulta. Revisá tu conexión e intentá de nuevo.', true);
             })
             .finally(function () {
