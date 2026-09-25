@@ -80,27 +80,6 @@ sort($brands);
 <?php else: ?>
 
 <?php if (!$editing): ?>
-<div class="modal fade" id="createProductChoiceModal" tabindex="-1" aria-labelledby="createProductChoiceModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createProductChoiceModalLabel">¿Este producto viene en varias tallas, colores o presentaciones?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body d-flex flex-column gap-2">
-                <button type="button" class="btn btn-outline-secondary text-start py-3" id="chooseSimpleProductBtn">
-                    <div class="fw-semibold">No, es un solo producto</div>
-                    <div class="small text-secondary">Un formulario simple, con un único precio y stock.</div>
-                </button>
-                <button type="button" class="btn btn-outline-primary text-start py-3" id="chooseVariantProductBtn">
-                    <div class="fw-semibold">Sí, viene en varias</div>
-                    <div class="small text-secondary">Ej: Royal Canin Mini Adulto en 1kg, 3kg, 7.5kg, 15kg.</div>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="importProductsModal" tabindex="-1" aria-labelledby="importProductsModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -366,89 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<?php if (!$editing): ?>
-<div class="card border-0 shadow-sm mb-4" id="variantProductCard" hidden>
-    <div class="card-body">
-        <h2 class="h5 fw-semibold mb-3">Nuevo producto con variantes</h2>
-        <form method="POST" action="<?= BASE_URL ?>/process/product_variants_process.php" enctype="multipart/form-data" id="variantProductForm">
-            <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label for="variant_general_name" class="form-label">Nombre general</label>
-                    <input type="text" id="variant_general_name" name="name" class="form-control" placeholder="Ej: Royal Canin Mini Adulto" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="variant_category" class="form-label">Categoría</label>
-                    <input type="text" id="variant_category" name="category" class="form-control" list="category-suggestions" placeholder="Ej: Alimentos, Accesorios">
-                </div>
-                <div class="col-md-6">
-                    <label for="variant_imagen" class="form-label">Imagen principal</label>
-                    <input type="file" id="variant_imagen" name="imagen" class="form-control" accept="image/*">
-                    <div class="form-text">Se usa para todas las presentaciones. JPG, PNG, GIF o WEBP. Se optimiza sola antes de subirla.</div>
-                </div>
-                <div class="col-md-6">
-                    <label for="variant_description" class="form-label">Descripción</label>
-                    <textarea id="variant_description" name="description" class="form-control" rows="1"></textarea>
-                </div>
-            </div>
-
-            <label class="form-label">Tipo de variante</label>
-            <div class="d-flex flex-wrap gap-2 mb-2">
-                <button type="button" class="btn btn-sm btn-outline-primary variant-type-chip" data-type="weight">+ Presentación / Peso</button>
-                <button type="button" class="btn btn-sm btn-outline-primary variant-type-chip" data-type="flavor">+ Sabor</button>
-                <button type="button" class="btn btn-sm btn-outline-primary variant-type-chip" data-type="size">+ Talla / Tamaño</button>
-                <button type="button" class="btn btn-sm btn-outline-primary variant-type-chip" data-type="color">+ Color</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-type-chip" data-type="custom">+ Crear otra característica</button>
-            </div>
-
-            <div id="weightPresetRow" class="d-none flex-wrap align-items-center gap-2 mb-3">
-                <span class="small text-secondary">Agregar presentación:</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="Suelto">Suelto</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="1kg">1kg</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="1.5kg">1.5kg</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="3kg">3kg</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="7.5kg">7.5kg</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="15kg">15kg</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="20kg">20kg</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary variant-preset-btn" data-label="22kg">22kg</button>
-            </div>
-
-            <div id="customVariantRow" class="d-none align-items-center gap-2 mb-3">
-                <input type="text" id="customVariantInput" class="form-control form-control-sm" style="max-width: 220px;" placeholder="Ej: Rojo, Grande, Pollo...">
-                <button type="button" class="btn btn-sm btn-primary" id="addCustomVariantBtn">Agregar</button>
-            </div>
-
-            <div class="table-responsive">
-                <table class="table align-middle table-sm" id="variantTable">
-                    <thead>
-                        <tr>
-                            <th>Nombre de la variante</th>
-                            <th>Precio</th>
-                            <th>Costo</th>
-                            <th>Stock inicial</th>
-                            <th>SKU / código de barras</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="variantTableBody"></tbody>
-                </table>
-                <p id="variantTableEmpty" class="text-secondary text-center py-3">Elegí un tipo de variante arriba para empezar a agregar presentaciones.</p>
-            </div>
-
-            <div class="form-check form-switch mb-3">
-                <input class="form-check-input" type="checkbox" role="switch" id="variant_show_in_catalog" name="show_in_catalog" value="1" checked>
-                <label class="form-check-label" for="variant_show_in_catalog">Mostrar en el catálogo online</label>
-                <div class="form-text">Aplica a todas las presentaciones. Desactivalo si son productos que solo vendés por mostrador.</div>
-            </div>
-
-            <div class="d-flex gap-2 mt-3">
-                <button type="submit" class="btn btn-primary rounded-pill px-4" id="submitVariantProductBtn" disabled>Guardar producto con variantes</button>
-                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="cancelVariantProductBtn">Cancelar</button>
-            </div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
 <?php if ($products): ?>
 <div class="mb-3">
     <div class="input-group">
@@ -641,115 +537,19 @@ thead .sticky-col { z-index: 2; }
 <?php if (!$editing): ?>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    setupImageCompression('variant_imagen');
-    setupFormLoadingState('variantProductForm', 'Guardando...');
     setupFormLoadingState('importProductsForm', 'Importando...');
 
-    const openBtn = document.getElementById('openCreateProductBtn');
-    const choiceModalEl = document.getElementById('createProductChoiceModal');
-    const choiceModal = new bootstrap.Modal(choiceModalEl);
-    const simpleCard = document.getElementById('simpleProductCard');
-    const variantCard = document.getElementById('variantProductCard');
-
-    openBtn.addEventListener('click', () => choiceModal.show());
-
-    document.getElementById('chooseSimpleProductBtn').addEventListener('click', () => {
-        choiceModal.hide();
-        variantCard.hidden = true;
+    // "Crear producto" va directo al formulario simple: agregar
+    // presentaciones (variantes) ya se hace después, desde "Agregar otra
+    // presentación" al editar el producto recién creado.
+    document.getElementById('openCreateProductBtn').addEventListener('click', () => {
+        const simpleCard = document.getElementById('simpleProductCard');
         simpleCard.hidden = false;
         simpleCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
-    document.getElementById('chooseVariantProductBtn').addEventListener('click', () => {
-        choiceModal.hide();
-        simpleCard.hidden = true;
-        variantCard.hidden = false;
-        variantCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
     document.getElementById('cancelSimpleProductBtn').addEventListener('click', () => {
-        simpleCard.hidden = true;
-    });
-
-    document.getElementById('cancelVariantProductBtn').addEventListener('click', () => {
-        variantCard.hidden = true;
-    });
-
-    // --- Formulario de producto con variantes ---
-    const weightPresetRow = document.getElementById('weightPresetRow');
-    const customVariantRow = document.getElementById('customVariantRow');
-    const customVariantInput = document.getElementById('customVariantInput');
-    const variantTableBody = document.getElementById('variantTableBody');
-    const variantTableEmpty = document.getElementById('variantTableEmpty');
-    const submitVariantBtn = document.getElementById('submitVariantProductBtn');
-    let variantRowCount = 0;
-
-    function updateVariantTableState() {
-        const hasRows = variantTableBody.children.length > 0;
-        variantTableEmpty.hidden = hasRows;
-        submitVariantBtn.disabled = !hasRows;
-    }
-
-    function addVariantRow(prefillName) {
-        variantRowCount++;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="text" name="variant_name[]" class="form-control form-control-sm" value="${prefillName ? prefillName.replace(/"/g, '&quot;') : ''}" placeholder="Ej: 15 kilos" required></td>
-            <td><input type="number" step="0.01" min="0" name="variant_price[]" class="form-control form-control-sm" placeholder="0.00" required style="max-width: 110px;"></td>
-            <td><input type="number" step="0.01" min="0" name="variant_cost[]" class="form-control form-control-sm" placeholder="0.00" style="max-width: 110px;"></td>
-            <td><input type="number" step="0.001" min="0" name="variant_stock[]" class="form-control form-control-sm" value="0" style="max-width: 100px;"></td>
-            <td><input type="text" name="variant_sku[]" class="form-control form-control-sm" placeholder="Opcional"></td>
-            <td><button type="button" class="btn btn-sm btn-outline-danger remove-variant-row" aria-label="Quitar"><i class="bi bi-trash"></i></button></td>
-        `;
-        row.querySelector('.remove-variant-row').addEventListener('click', () => {
-            row.remove();
-            updateVariantTableState();
-        });
-        variantTableBody.appendChild(row);
-        updateVariantTableState();
-        row.querySelector('input[name="variant_price[]"]').focus();
-    }
-
-    function toggleRow(el, show) {
-        el.classList.toggle('d-none', !show);
-        el.classList.toggle('d-flex', show);
-    }
-
-    document.querySelectorAll('.variant-type-chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-            const type = chip.dataset.type;
-            toggleRow(weightPresetRow, type === 'weight');
-            toggleRow(customVariantRow, type !== 'weight');
-            if (type !== 'weight') {
-                customVariantInput.value = '';
-                customVariantInput.placeholder = {
-                    flavor: 'Ej: Pollo, Carne, Salmón...',
-                    size: 'Ej: Chico, Mediano, Grande...',
-                    color: 'Ej: Negro, Blanco, Rojo...',
-                    custom: 'Ej: Rojo, Grande, Pollo...',
-                }[type] || 'Nombre de la variante';
-                customVariantInput.focus();
-            }
-        });
-    });
-
-    document.querySelectorAll('.variant-preset-btn').forEach((btn) => {
-        btn.addEventListener('click', () => addVariantRow(btn.dataset.label));
-    });
-
-    document.getElementById('addCustomVariantBtn').addEventListener('click', () => {
-        const label = customVariantInput.value.trim();
-        if (!label) return;
-        addVariantRow(label);
-        customVariantInput.value = '';
-        customVariantInput.focus();
-    });
-
-    customVariantInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            document.getElementById('addCustomVariantBtn').click();
-        }
+        document.getElementById('simpleProductCard').hidden = true;
     });
 });
 </script>
