@@ -73,7 +73,7 @@ class Tenant
         $fields = [];
         $params = ['id' => $id];
 
-        foreach (['name', 'email', 'phone', 'address', 'tax_id', 'whatsapp_phone', 'ai_assistant_enabled', 'public_token', 'status'] as $field) {
+        foreach (['name', 'email', 'phone', 'address', 'logo_path', 'show_location_on_logo', 'tax_id', 'whatsapp_phone', 'ai_assistant_enabled', 'public_token', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[$field] = $data[$field];
@@ -98,6 +98,19 @@ class Tenant
     {
         self::db()->prepare('UPDATE tenants SET ai_assistant_requested_at = NOW() WHERE id = :id')
             ->execute(['id' => $id]);
+    }
+
+    /**
+     * URL pública del logo subido por el negocio, o null si no tiene uno
+     * cargado (el catálogo cae al ícono genérico en ese caso).
+     */
+    public static function logoUrl(array $tenant): ?string
+    {
+        if (!empty($tenant['logo_path'])) {
+            return BASE_URL . '/' . ltrim($tenant['logo_path'], '/');
+        }
+
+        return null;
     }
 
     public static function delete(int $id): bool

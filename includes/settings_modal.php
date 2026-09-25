@@ -9,6 +9,14 @@ $settingsTenant = $settingsTenantId ? Tenant::find($settingsTenantId) : null;
 $settingsUser = $settingsUserId ? User::find($settingsUserId) : null;
 $settingsRedirectPath = parse_url($_SERVER['REQUEST_URI'] ?? '/vender.php', PHP_URL_PATH) ?: '/vender.php';
 ?>
+<style>
+    .settings-logo-preview {
+        width: 3.2rem; height: 3.2rem; border-radius: .6rem; overflow: hidden; flex-shrink: 0;
+        background: #f3f4f6; border: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: center;
+        color: #9ca3af; font-size: 1.3rem;
+    }
+    .settings-logo-preview img { width: 100%; height: 100%; object-fit: cover; }
+</style>
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -16,7 +24,7 @@ $settingsRedirectPath = parse_url($_SERVER['REQUEST_URI'] ?? '/vender.php', PHP_
                 <h5 class="modal-title" id="settingsModalLabel"><i class="bi bi-gear me-2"></i>Ajustes</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form method="POST" action="<?= BASE_URL ?>/process/settings_process.php">
+            <form method="POST" action="<?= BASE_URL ?>/process/settings_process.php" enctype="multipart/form-data">
                 <input type="hidden" name="redirect_to" value="<?= htmlspecialchars($settingsRedirectPath) ?>">
                 <div class="modal-body">
                     <?php if (isset($_GET['settings_error'])): ?>
@@ -26,6 +34,9 @@ $settingsRedirectPath = parse_url($_SERVER['REQUEST_URI'] ?? '/vender.php', PHP_
                                 'password_current' => 'La contraseña actual no es correcta.',
                                 'password_short' => 'La nueva contraseña debe tener al menos 6 caracteres.',
                                 'password_mismatch' => 'La confirmación de la nueva contraseña no coincide.',
+                                'size' => 'El logo no puede pesar más de 5 MB.',
+                                'type' => 'El logo debe ser una imagen (JPG, PNG, WEBP o GIF).',
+                                'upload' => 'No se pudo subir el logo. Intentá de nuevo.',
                             ];
                             echo $settingsErrorMessages[$_GET['settings_error']]
                                 ?? 'No se pudieron guardar los cambios. Verificá que el nombre del comercio y tu nombre de usuario no estén vacíos.';
@@ -46,6 +57,34 @@ $settingsRedirectPath = parse_url($_SERVER['REQUEST_URI'] ?? '/vender.php', PHP_
                         <label for="settings-tenant-address" class="form-label">Dirección</label>
                         <input type="text" id="settings-tenant-address" name="tenant_address" class="form-control" value="<?= htmlspecialchars($settingsTenant['address'] ?? '') ?>">
                         <div class="form-text">Aparece en el remito web y en el comprobante impreso.</div>
+                    </div>
+                    <?php $settingsLogoUrl = Tenant::logoUrl($settingsTenant ?? []); ?>
+                    <div class="mb-3">
+                        <label class="form-label">Logo de tu negocio</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="settings-logo-preview">
+                                <?php if ($settingsLogoUrl): ?>
+                                    <img src="<?= htmlspecialchars($settingsLogoUrl) ?>" alt="Logo actual">
+                                <?php else: ?>
+                                    <i class="bi bi-shop"></i>
+                                <?php endif; ?>
+                            </div>
+                            <div class="flex-grow-1">
+                                <input type="file" id="settings-tenant-logo" name="tenant_logo" class="form-control" accept="image/png,image/jpeg,image/webp,image/gif">
+                                <?php if ($settingsLogoUrl): ?>
+                                    <div class="form-check mt-1">
+                                        <input class="form-check-input" type="checkbox" id="settings-tenant-logo-remove" name="tenant_logo_remove" value="1">
+                                        <label class="form-check-label small" for="settings-tenant-logo-remove">Quitar el logo actual</label>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="form-text">Se muestra en tu catálogo online junto al logo de SixSeven, para que tus clientes reconozcan tu negocio.</div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" id="settings-tenant-show-location" name="tenant_show_location_on_logo" value="1" <?= !empty($settingsTenant['show_location_on_logo']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="settings-tenant-show-location">Al tocar mi logo en el catálogo, abrir cómo llegar en Google Maps</label>
+                        <div class="form-text">Usa la dirección de arriba. Si la dejás vacía, esta opción no hace nada aunque esté tildada.</div>
                     </div>
                     <div class="mb-3">
                         <label for="settings-tenant-tax-id" class="form-label">Identificación fiscal (CUIT, opcional)</label>

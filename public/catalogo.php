@@ -55,6 +55,10 @@ $whatsappDigits = preg_replace('/\D+/', '', $tenant['whatsapp_phone'] ?? '');
 $whatsappGeneralUrl = $whatsappDigits
     ? 'https://wa.me/' . $whatsappDigits . '?text=' . rawurlencode('Hola, quiero hacer una consulta sobre sus productos.')
     : null;
+$tenantLogoUrl = Tenant::logoUrl($tenant);
+$tenantMapsUrl = (!empty($tenant['show_location_on_logo']) && !empty($tenant['address']))
+    ? 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($tenant['address'])
+    : null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -69,12 +73,21 @@ $whatsappGeneralUrl = $whatsappDigits
         body { margin: 0; background: #f1f2f4; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
         .catalog-header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 1rem; position: sticky; top: 0; z-index: 10; }
         .catalog-body { max-width: 1100px; margin: 0 auto; padding: 1rem; }
-        .catalog-brand-mark {
+        .catalog-tenant-logo-wrap, .catalog-tenant-logo-link {
             display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-            width: 2.52rem; height: 2.52rem; border-radius: .72rem;
+            width: 2.52rem; height: 2.52rem; border-radius: .72rem; overflow: hidden; text-decoration: none;
+        }
+        .catalog-tenant-logo-wrap img, .catalog-tenant-logo-link img { width: 100%; height: 100%; object-fit: cover; }
+        .catalog-tenant-logo-wrap i, .catalog-tenant-logo-link i {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #00b28f, #009677); color: #fff; font-size: 1.2rem;
+        }
+        .catalog-sixseven-badge {
+            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 2rem; height: 2rem; border-radius: .6rem; border: none; padding: 0;
             background: linear-gradient(135deg, #00b28f, #009677); color: #fff;
-            font-weight: 800; font-size: .96rem; letter-spacing: -.04em;
-            box-shadow: 0 .15rem .4rem rgba(0, 178, 143, .35);
+            font-weight: 800; font-size: .78rem; letter-spacing: -.04em;
+            box-shadow: 0 .1rem .3rem rgba(0, 178, 143, .35);
         }
         .catalog-search-row { display: flex; gap: .5rem; flex-wrap: wrap; }
         .catalog-search-row .input-group { flex: 1 1 220px; }
@@ -146,18 +159,37 @@ $whatsappGeneralUrl = $whatsappDigits
     <div class="catalog-header">
         <div class="catalog-body py-0 d-flex align-items-center justify-content-between gap-3">
             <div class="d-flex align-items-center gap-2 min-w-0">
-                <span class="catalog-brand-mark" aria-hidden="true">6&amp;7</span>
+                <?php if ($tenantMapsUrl): ?>
+                    <a href="<?= htmlspecialchars($tenantMapsUrl) ?>" target="_blank" rel="noopener" class="catalog-tenant-logo-link" title="Cómo llegar a <?= htmlspecialchars($tenant['name']) ?>">
+                        <?php if ($tenantLogoUrl): ?>
+                            <img src="<?= htmlspecialchars($tenantLogoUrl) ?>" alt="<?= htmlspecialchars($tenant['name']) ?>">
+                        <?php else: ?>
+                            <i class="bi bi-geo-alt-fill"></i>
+                        <?php endif; ?>
+                    </a>
+                <?php else: ?>
+                    <span class="catalog-tenant-logo-wrap">
+                        <?php if ($tenantLogoUrl): ?>
+                            <img src="<?= htmlspecialchars($tenantLogoUrl) ?>" alt="<?= htmlspecialchars($tenant['name']) ?>">
+                        <?php else: ?>
+                            <i class="bi bi-shop"></i>
+                        <?php endif; ?>
+                    </span>
+                <?php endif; ?>
                 <div class="min-w-0">
                     <h1 class="h5 fw-bold mb-0 text-truncate"><?= htmlspecialchars($tenant['name']) ?></h1>
                     <div class="text-secondary small">Catálogo en vivo · <span id="last-updated">actualizando...</span></div>
                 </div>
             </div>
-            <?php if ($products): ?>
-            <button type="button" class="btn btn-primary position-relative flex-shrink-0" data-bs-toggle="modal" data-bs-target="#cartModal">
-                <i class="bi bi-cart3"></i>
-                <span class="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle" id="cart-badge" hidden>0</span>
-            </button>
-            <?php endif; ?>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <button type="button" class="catalog-sixseven-badge" id="sixseven-subscribe-trigger" title="Creá tu propio catálogo con SixSeven" aria-label="Creá tu propio catálogo con SixSeven">6&amp;7</button>
+                <?php if ($products): ?>
+                <button type="button" class="btn btn-primary position-relative" data-bs-toggle="modal" data-bs-target="#cartModal">
+                    <i class="bi bi-cart3"></i>
+                    <span class="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle" id="cart-badge" hidden>0</span>
+                </button>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
@@ -266,6 +298,39 @@ $whatsappGeneralUrl = $whatsappDigits
         </div>
     </div>
 
+    <div class="modal fade" id="sixsevenLeadModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">¿Tenés un negocio?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small">Este catálogo funciona con SixSeven. Dejanos tus datos y te contactamos para armar el tuyo.</p>
+                    <div id="sixseven-lead-error" class="alert alert-danger py-2 small" hidden></div>
+                    <div id="sixseven-lead-success" class="alert alert-success py-2 small" hidden>¡Gracias! Te vamos a contactar pronto. Mientras tanto, seguí viendo el catálogo.</div>
+                    <div id="sixseven-lead-fields">
+                        <div class="mb-3">
+                            <label for="sixseven-lead-name" class="form-label">Tu nombre</label>
+                            <input type="text" id="sixseven-lead-name" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="sixseven-lead-phone" class="form-label">Tu WhatsApp</label>
+                            <input type="text" id="sixseven-lead-phone" class="form-control">
+                        </div>
+                        <div class="mb-0">
+                            <label for="sixseven-lead-business" class="form-label">Nombre de tu negocio (opcional)</label>
+                            <input type="text" id="sixseven-lead-business" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="sixseven-lead-submit-btn" class="btn btn-primary w-100">Quiero mi catálogo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -307,6 +372,74 @@ $whatsappGeneralUrl = $whatsappDigits
         const detailAddBtn = document.getElementById('detail-add-btn');
         const detailAskBtn = document.getElementById('detail-ask-btn');
         const detailPresentationsEl = document.getElementById('detail-presentations');
+
+        // El logo de SixSeven (siempre visible, tenga o no productos el
+        // catálogo) abre un modal para dejar los datos de un interesado en
+        // tener su propio catálogo — sin salir nunca de este catálogo.
+        const sixsevenBadge = document.getElementById('sixseven-subscribe-trigger');
+        const sixsevenLeadModalEl = document.getElementById('sixsevenLeadModal');
+        const sixsevenLeadFieldsEl = document.getElementById('sixseven-lead-fields');
+        const sixsevenLeadErrorEl = document.getElementById('sixseven-lead-error');
+        const sixsevenLeadSuccessEl = document.getElementById('sixseven-lead-success');
+        const sixsevenLeadNameInput = document.getElementById('sixseven-lead-name');
+        const sixsevenLeadPhoneInput = document.getElementById('sixseven-lead-phone');
+        const sixsevenLeadBusinessInput = document.getElementById('sixseven-lead-business');
+        const sixsevenLeadSubmitBtn = document.getElementById('sixseven-lead-submit-btn');
+
+        if (sixsevenBadge && sixsevenLeadModalEl) {
+            sixsevenBadge.addEventListener('click', () => {
+                bootstrap.Modal.getOrCreateInstance(sixsevenLeadModalEl).show();
+            });
+
+            sixsevenLeadSubmitBtn.addEventListener('click', () => {
+                const name = sixsevenLeadNameInput.value.trim();
+                const phone = sixsevenLeadPhoneInput.value.trim();
+                if (!name || !phone) {
+                    sixsevenLeadErrorEl.textContent = 'Completá tu nombre y tu WhatsApp.';
+                    sixsevenLeadErrorEl.hidden = false;
+                    return;
+                }
+                sixsevenLeadErrorEl.hidden = true;
+                sixsevenLeadSubmitBtn.disabled = true;
+
+                const body = new URLSearchParams({
+                    name,
+                    phone,
+                    business_name: sixsevenLeadBusinessInput.value.trim(),
+                    t: <?= json_encode($token) ?>,
+                });
+
+                fetch('<?= BASE_URL ?>/api/catalog_lead.php', { method: 'POST', body })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        if (data.ok) {
+                            sixsevenLeadFieldsEl.hidden = true;
+                            sixsevenLeadSuccessEl.hidden = false;
+                            sixsevenLeadSubmitBtn.hidden = true;
+                        } else {
+                            sixsevenLeadErrorEl.textContent = data.error || 'No se pudo enviar. Intentá de nuevo.';
+                            sixsevenLeadErrorEl.hidden = false;
+                            sixsevenLeadSubmitBtn.disabled = false;
+                        }
+                    })
+                    .catch(() => {
+                        sixsevenLeadErrorEl.textContent = 'No se pudo enviar. Intentá de nuevo.';
+                        sixsevenLeadErrorEl.hidden = false;
+                        sixsevenLeadSubmitBtn.disabled = false;
+                    });
+            });
+
+            sixsevenLeadModalEl.addEventListener('hidden.bs.modal', () => {
+                sixsevenLeadFieldsEl.hidden = false;
+                sixsevenLeadSuccessEl.hidden = true;
+                sixsevenLeadErrorEl.hidden = true;
+                sixsevenLeadSubmitBtn.hidden = false;
+                sixsevenLeadSubmitBtn.disabled = false;
+                sixsevenLeadNameInput.value = '';
+                sixsevenLeadPhoneInput.value = '';
+                sixsevenLeadBusinessInput.value = '';
+            });
+        }
 
         if (!gridEl) return;
 
