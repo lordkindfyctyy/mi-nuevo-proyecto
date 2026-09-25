@@ -225,8 +225,18 @@ sort($brands);
         </p>
         <form method="POST" action="<?= BASE_URL ?>/process/product_add_variant_process.php" class="row g-2 align-items-end" id="addVariantForm">
             <input type="hidden" name="product_id" value="<?= (int) $editing['id'] ?>">
+            <div class="col-12">
+                <label class="form-label d-block">Tipo de variante</label>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-primary add-variant-type-chip" data-type="weight">Presentación / Peso</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary add-variant-type-chip" data-type="flavor">Sabor</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary add-variant-type-chip" data-type="size">Talla / Tamaño</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary add-variant-type-chip" data-type="color">Color</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary add-variant-type-chip" data-type="custom">Otra característica</button>
+                </div>
+            </div>
             <div class="col-md-3">
-                <label for="add_variant_name" class="form-label">Presentación</label>
+                <label for="add_variant_name" class="form-label" id="add_variant_name_label">Presentación</label>
                 <input type="text" id="add_variant_name" name="variant_name" class="form-control form-control-sm" placeholder="Ej: 15 kilos" required>
             </div>
             <div class="col-md-2">
@@ -248,7 +258,7 @@ sort($brands);
             <div class="col-md-1 d-grid">
                 <button type="submit" class="btn btn-sm btn-primary">Agregar</button>
             </div>
-            <div class="col-12 d-flex flex-wrap align-items-center gap-2 mt-1">
+            <div class="col-12 d-flex flex-wrap align-items-center gap-2 mt-1" id="add-variant-presets-row">
                 <span class="small text-secondary">Presets:</span>
                 <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="Suelto">Suelto</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="1kg">1kg</button>
@@ -270,6 +280,44 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.add-variant-preset-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             addVariantNameInput.value = btn.dataset.label;
+            addVariantNameInput.focus();
+        });
+    });
+
+    // Además de peso/presentación (con presets), se puede agregar la nueva
+    // presentación por sabor, talla, color u otra característica — igual
+    // que en "Nuevo producto con variantes", solo que acá se carga de a una.
+    const typeChips = document.querySelectorAll('.add-variant-type-chip');
+    const nameLabel = document.getElementById('add_variant_name_label');
+    const presetsRow = document.getElementById('add-variant-presets-row');
+    const typeConfig = {
+        weight: { label: 'Presentación', placeholder: 'Ej: 15 kilos', showPresets: true },
+        flavor: { label: 'Sabor', placeholder: 'Ej: Pollo, Carne, Salmón...', showPresets: false },
+        size: { label: 'Talla / Tamaño', placeholder: 'Ej: Chico, Mediano, Grande...', showPresets: false },
+        color: { label: 'Color', placeholder: 'Ej: Negro, Blanco, Rojo...', showPresets: false },
+        custom: { label: 'Variante', placeholder: 'Ej: Rojo, Grande, Pollo...', showPresets: false },
+    };
+
+    typeChips.forEach((chip) => {
+        chip.addEventListener('click', () => {
+            const config = typeConfig[chip.dataset.type];
+
+            typeChips.forEach((c) => {
+                const active = c === chip;
+                const secondary = c.dataset.type === 'custom';
+                c.classList.toggle('btn-primary', active && !secondary);
+                c.classList.toggle('btn-outline-primary', !active && !secondary);
+                c.classList.toggle('btn-secondary', active && secondary);
+                c.classList.toggle('btn-outline-secondary', !active && secondary);
+            });
+
+            nameLabel.textContent = config.label;
+            addVariantNameInput.placeholder = config.placeholder;
+            addVariantNameInput.value = '';
+            // .d-flex usa !important, así que hay que sacarla para que
+            // [hidden] realmente oculte la fila de presets.
+            presetsRow.classList.toggle('d-flex', config.showPresets);
+            presetsRow.hidden = !config.showPresets;
             addVariantNameInput.focus();
         });
     });
