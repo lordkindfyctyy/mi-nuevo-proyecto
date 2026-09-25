@@ -41,7 +41,7 @@ try {
         'brand' => $product['brand'],
         'imagen' => $product['imagen'],
         'cost' => (float) ($_POST['cost'] ?? 0),
-        'sale_unit' => $product['sale_unit'],
+        'sale_unit' => Product::saleUnitForVariantLabel($variantLabel),
         'stock_quantity' => (float) ($_POST['stock'] ?? 0),
         'show_in_catalog' => $product['show_in_catalog'],
     ]);

@@ -53,6 +53,16 @@ class Product
         return $trimmed;
     }
 
+    /**
+     * "Suelto"/"a granel" son las únicas presentaciones que se venden
+     * fraccionadas (por peso); el resto son paquetes/bolsas cerradas que
+     * solo se venden en unidades enteras.
+     */
+    public static function saleUnitForVariantLabel(string $label): string
+    {
+        return preg_match('/^\s*(suelto|a\s*granel)\s*$/i', $label) ? 'weight' : 'unit';
+    }
+
     public static function find(int $id): ?array
     {
         $stmt = self::db()->prepare('SELECT * FROM products WHERE id = :id');

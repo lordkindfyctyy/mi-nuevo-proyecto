@@ -54,7 +54,7 @@ try {
             'category' => $category,
             'imagen' => $upload['path'],
             'cost' => (float) ($variantCosts[$index] ?? 0),
-            'sale_unit' => 'unit',
+            'sale_unit' => Product::saleUnitForVariantLabel($variantName),
             'stock_quantity' => (float) ($variantStocks[$index] ?? 0),
             'show_in_catalog' => isset($_POST['show_in_catalog']) ? 1 : 0,
         ]);
