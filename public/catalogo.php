@@ -92,6 +92,8 @@ $whatsappGeneralUrl = $whatsappDigits
         .catalog-card-sku { font-size: .72rem; color: #6b7280; }
         .catalog-card-actions { margin-top: auto; display: flex; gap: .35rem; padding-top: .35rem; }
         .catalog-in-cart-note { font-size: .72rem; color: #00b28f; font-weight: 600; }
+        .catalog-card-desc-toggle { font-size: .72rem; color: #00b28f; font-weight: 600; background: none; border: none; padding: 0; text-align: left; }
+        .catalog-card-desc-text { font-size: .76rem; color: #6b7280; line-height: 1.3; margin-top: .1rem; }
         .catalog-whatsapp-fab {
             position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 20;
             width: 3.5rem; height: 3.5rem; border-radius: 50%; background: #25D366; color: #fff;
@@ -585,6 +587,10 @@ $whatsappGeneralUrl = $whatsappDigits
                     <div class="catalog-card-price">${formatMoney(product.price)}</div>
                     <div class="catalog-card-name">${escapeHtml(product.name)}</div>
                     ${product.sku ? `<div class="catalog-card-sku">SKU: ${escapeHtml(product.sku)}</div>` : ''}
+                    ${product.description ? `
+                        <button type="button" class="catalog-card-desc-toggle">Ver más información <i class="bi bi-chevron-down"></i></button>
+                        <div class="catalog-card-desc-text" hidden>${escapeHtml(product.description)}</div>
+                    ` : ''}
                     ${inCartQty > 0 ? `<div class="catalog-in-cart-note">En tu pedido: ${inCartQty}</div>` : ''}
                     <div class="catalog-card-actions">
                         <button type="button" class="btn btn-sm btn-primary flex-grow-1 add-to-cart-btn" ${!inStock || maxedOut ? 'disabled' : ''}>Agregar</button>
@@ -593,6 +599,18 @@ $whatsappGeneralUrl = $whatsappDigits
                 </div>
             `;
             card.querySelector('.add-to-cart-btn').addEventListener('click', () => addToCart(product.id));
+            const descToggle = card.querySelector('.catalog-card-desc-toggle');
+            if (descToggle) {
+                descToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const textEl = card.querySelector('.catalog-card-desc-text');
+                    const expanded = !textEl.hidden;
+                    textEl.hidden = expanded;
+                    descToggle.innerHTML = expanded
+                        ? 'Ver más información <i class="bi bi-chevron-down"></i>'
+                        : 'Ver menos <i class="bi bi-chevron-up"></i>';
+                });
+            }
             card.addEventListener('click', (e) => {
                 if (e.target.closest('.catalog-card-actions')) return;
                 openProductDetail(product.id);
