@@ -34,6 +34,25 @@ class Product
         return (int) self::db()->lastInsertId();
     }
 
+    /**
+     * Nombre base de un producto, sacándole el peso/presentación del final
+     * si lo tiene (ej. "Royal Canin Mini Adulto 3k" -> "Royal Canin Mini
+     * Adulto"). Es la misma regla con la que Vender y el catálogo agrupan
+     * presentaciones por nombre — así un producto nuevo creado como
+     * "{base} {presentación}" cae en el mismo grupo que el original.
+     */
+    public static function baseName(string $name): string
+    {
+        $trimmed = trim($name);
+        $pattern = '/^(.*?)[\s-]+((?:x\s*)?\d+(?:[.,]\d+)?\s*(?:x\s*\d+(?:[.,]\d+)?\s*)?(?:kgs?|kilos?|k|grs?|gramos?|g|mls?|ml|lts?|litros?|l)\.?|suelto|a\s*granel)$/i';
+
+        if (preg_match($pattern, $trimmed, $matches) && mb_strlen(trim($matches[1])) >= 3) {
+            return trim($matches[1]);
+        }
+
+        return $trimmed;
+    }
+
     public static function find(int $id): ?array
     {
         $stmt = self::db()->prepare('SELECT * FROM products WHERE id = :id');

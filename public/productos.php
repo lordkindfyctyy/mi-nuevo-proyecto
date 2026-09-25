@@ -236,6 +236,68 @@ sort($brands);
     </div>
 </div>
 
+<?php if ($editing): ?>
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <h2 class="h5 fw-semibold mb-1">Agregar otra presentación</h2>
+        <p class="text-secondary small mb-3">
+            Crea un nuevo producto a partir de "<?= htmlspecialchars(Product::baseName($editing['name'])) ?>" en otro peso, tamaño o variante.
+            Comparte la categoría, la marca, la imagen y la descripción de este producto — así se agrupan juntos en Vender y en el catálogo.
+        </p>
+        <form method="POST" action="<?= BASE_URL ?>/process/product_add_variant_process.php" class="row g-2 align-items-end" id="addVariantForm">
+            <input type="hidden" name="product_id" value="<?= (int) $editing['id'] ?>">
+            <div class="col-md-3">
+                <label for="add_variant_name" class="form-label">Presentación</label>
+                <input type="text" id="add_variant_name" name="variant_name" class="form-control form-control-sm" placeholder="Ej: 15 kilos" required>
+            </div>
+            <div class="col-md-2">
+                <label for="add_variant_price" class="form-label">Precio</label>
+                <input type="number" step="0.01" min="0" id="add_variant_price" name="price" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-2">
+                <label for="add_variant_cost" class="form-label">Costo</label>
+                <input type="number" step="0.01" min="0" id="add_variant_cost" name="cost" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label for="add_variant_stock" class="form-label">Stock</label>
+                <input type="number" step="0.001" min="0" id="add_variant_stock" name="stock" class="form-control form-control-sm" value="0">
+            </div>
+            <div class="col-md-2">
+                <label for="add_variant_sku" class="form-label">SKU</label>
+                <input type="text" id="add_variant_sku" name="sku" class="form-control form-control-sm" placeholder="Opcional">
+            </div>
+            <div class="col-md-1 d-grid">
+                <button type="submit" class="btn btn-sm btn-primary">Agregar</button>
+            </div>
+            <div class="col-12 d-flex flex-wrap align-items-center gap-2 mt-1">
+                <span class="small text-secondary">Presets:</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="Suelto">Suelto</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="1kg">1kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="1.5kg">1.5kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="3kg">3kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="7.5kg">7.5kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="15kg">15kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="20kg">20kg</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary add-variant-preset-btn" data-label="22kg">22kg</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const addVariantNameInput = document.getElementById('add_variant_name');
+    if (!addVariantNameInput) return;
+
+    document.querySelectorAll('.add-variant-preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            addVariantNameInput.value = btn.dataset.label;
+            addVariantNameInput.focus();
+        });
+    });
+});
+</script>
+<?php endif; ?>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     // Las fotos que salen directo de la cámara de un celular pueden pesar
