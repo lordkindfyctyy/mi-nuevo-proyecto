@@ -5,10 +5,12 @@ require_once __DIR__ . '/debug_log.php';
 /**
  * Calls Gemini (Google AI Studio) to generate a reply for the catalog's
  * customer-facing AI assistant, grounded in the tenant's real product data
- * so it doesn't invent prices or stock. Returns null on any failure (no key
- * configured, network error, empty/blocked response) so the caller can
- * silently skip the auto-reply and leave the conversation as a normal
- * human inbox — the customer's message is never lost either way.
+ * so it doesn't invent prices or stock. Reintenta una vez ante fallas
+ * transitorias (503 de alta demanda, timeouts) y, si aun asi no logra
+ * respuesta, devuelve un mensaje de resguardo prolijo en vez de null, para
+ * que el cliente nunca se quede sin respuesta. Solo devuelve null cuando la
+ * IA no esta configurada (sin API key) — en ese caso el llamador ya sabe
+ * que no debe intentar responder.
  *
  * @param array $tenant Tenant row (needs at least 'name').
  * @param array $products Tenant's products (name, price, stock_quantity, sale_unit, brand, category, status).
@@ -47,11 +49,14 @@ function gemini_catalog_reply(array $tenant, array $products, array $recentMessa
     }
 
     $tenantName = $tenant['name'] ?? 'este comercio';
-    $systemPrompt = "Sos el asistente de atención al cliente del catálogo online de \"{$tenantName}\", un comercio que vende a través de la plataforma SixSeven.\n"
-        . "Respondé SIEMPRE en español, de forma breve, cordial y directa (2 a 4 oraciones como máximo).\n"
-        . "Usá ÚNICAMENTE la información del catálogo de abajo para precios y stock — nunca inventes productos, precios ni disponibilidad que no estén listados ahí.\n"
-        . "Si te preguntan algo que no podés responder con este catálogo (formas de pago, envíos, horarios, o un producto que no está en la lista), decilo con honestidad y avisá que el vendedor le va a responder pronto.\n"
-        . "No uses markdown ni emojis.\n\n"
+    $systemPrompt = "Sos el asistente virtual de atención al cliente de \"{$tenantName}\", un comercio que vende a través de su catálogo online en la plataforma SixSeven.\n\n"
+        . "CÓMO HABLAR:\n"
+        . "- Español rioplatense con \"vos\", cordial, profesional y cercano — como un buen vendedor de local que atiende bien a la gente, nunca cortante ni robótico.\n"
+        . "- Respuestas cortas y claras (2 a 4 oraciones). Si te saludan o hacen una consulta general, respondé con calidez antes de ir al grano.\n"
+        . "- Sin markdown ni emojis (el chat no los muestra bien).\n\n"
+        . "REGLAS DE CONTENIDO:\n"
+        . "- Para precios y stock, usá ÚNICAMENTE la información del catálogo de abajo — nunca inventes productos, precios ni disponibilidad que no estén listados ahí.\n"
+        . "- Si te preguntan algo que no podés responder con este catálogo (formas de pago, envíos, horarios, o un producto que no está en la lista), decilo con sinceridad, sin inventar una respuesta, y avisá que el vendedor se va a poner en contacto a la brevedad.\n\n"
         . "Catálogo actual de \"{$tenantName}\":\n" . ($catalogLines ? implode("\n", $catalogLines) : '(el catálogo está vacío por el momento)');
 
     $contents = [];
@@ -76,13 +81,44 @@ function gemini_catalog_reply(array $tenant, array $products, array $recentMessa
         ],
     ];
 
+    $maxAttempts = 2;
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $text = gemini_send_request($payload);
+        if ($text !== null) {
+            return $text;
+        }
+        if ($attempt < $maxAttempts) {
+            // Los 503 de "alta demanda" de Gemini suelen ser picos momentáneos
+            // (así lo dice el propio mensaje de error de Google) — un breve
+            // reintento suele alcanzar para que el cliente reciba respuesta.
+            usleep(700000);
+        }
+    }
+
+    app_debug_log('[gemini] sin respuesta tras ' . $maxAttempts . ' intentos, se envía mensaje de resguardo');
+
+    // Para que el cliente nunca se quede sin respuesta ("colgado"), si la IA
+    // no pudo responder tras reintentar le devolvemos un mensaje de
+    // resguardo prolijo en vez de silencio.
+    return "¡Gracias por tu mensaje! En este momento no puedo consultarlo automáticamente, pero ya quedó registrado y {$tenantName} te va a responder a la brevedad.";
+}
+
+/**
+ * Hace un único intento de llamada a Gemini. Devuelve el texto de la
+ * respuesta, o null si falló (red, HTTP distinto de 200, o respuesta sin
+ * texto utilizable) para que el llamador decida si reintentar.
+ */
+function gemini_send_request(array $payload): ?string
+{
     $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=' . GEMINI_API_KEY);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-        CURLOPT_TIMEOUT => 15,
+        // Un timeout más corto por intento, para que aun con un reintento
+        // de por medio el cliente no espere una eternidad la respuesta.
+        CURLOPT_TIMEOUT => 10,
         // Algunos entornos tienen rutas IPv6 rotas/muy lentas hacia Google
         // que hacen colgar la conexión hasta el timeout sin esto.
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,

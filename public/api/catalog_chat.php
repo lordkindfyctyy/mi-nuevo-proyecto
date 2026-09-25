@@ -123,6 +123,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             app_debug_log('[gemini_catalog_reply] ' . $e->getMessage());
+
+            // Aun ante un error inesperado (no solo una falla de Gemini, ya
+            // resuelta con reintentos dentro de gemini_catalog_reply), el
+            // cliente no debe quedarse sin ninguna respuesta.
+            try {
+                if (!empty($tenant['ai_assistant_enabled'])) {
+                    ContactMessage::create([
+                        'tenant_id' => $caller['tenantId'],
+                        'name' => $tenant['name'] ?? 'Asistente',
+                        'message' => '🤖 ¡Gracias por tu mensaje! Ya quedó registrado y te vamos a responder a la brevedad.',
+                        'source' => 'catalog_chat',
+                        'sender' => 'admin',
+                        'widget_token' => $caller['token'],
+                    ]);
+                }
+            } catch (Throwable $inner) {
+                app_debug_log('[gemini_catalog_reply fallback] ' . $inner->getMessage());
+            }
         }
 
         echo json_encode(['ok' => true]);
