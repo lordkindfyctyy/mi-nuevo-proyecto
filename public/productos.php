@@ -80,27 +80,6 @@ sort($brands);
 <?php else: ?>
 
 <?php if (!$editing): ?>
-<div class="modal fade" id="createProductChoiceModal" tabindex="-1" aria-labelledby="createProductChoiceModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createProductChoiceModalLabel">¿Este producto viene en varias tallas, colores o presentaciones?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body d-flex flex-column gap-2">
-                <button type="button" class="btn btn-outline-secondary text-start py-3" id="chooseSimpleProductBtn">
-                    <div class="fw-semibold">No, es un solo producto</div>
-                    <div class="small text-secondary">Un formulario simple, con un único precio y stock.</div>
-                </button>
-                <button type="button" class="btn btn-outline-primary text-start py-3" id="chooseVariantProductBtn">
-                    <div class="fw-semibold">Sí, viene en varias</div>
-                    <div class="small text-secondary">Ej: Royal Canin Mini Adulto en 1kg, 3kg, 7.5kg, 15kg.</div>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="importProductsModal" tabindex="-1" aria-labelledby="importProductsModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -369,7 +348,10 @@ document.addEventListener('DOMContentLoaded', () => {
 <?php if (!$editing): ?>
 <div class="card border-0 shadow-sm mb-4" id="variantProductCard" hidden>
     <div class="card-body">
-        <h2 class="h5 fw-semibold mb-3">Nuevo producto con variantes</h2>
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <h2 class="h5 fw-semibold mb-0">Nuevo producto con variantes</h2>
+            <button type="button" class="btn btn-link btn-sm p-0" id="switchToSimpleProductBtn">¿Es un solo producto sin variantes?</button>
+        </div>
         <form method="POST" action="<?= BASE_URL ?>/process/product_variants_process.php" enctype="multipart/form-data" id="variantProductForm">
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
@@ -646,25 +628,22 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFormLoadingState('importProductsForm', 'Importando...');
 
     const openBtn = document.getElementById('openCreateProductBtn');
-    const choiceModalEl = document.getElementById('createProductChoiceModal');
-    const choiceModal = new bootstrap.Modal(choiceModalEl);
     const simpleCard = document.getElementById('simpleProductCard');
     const variantCard = document.getElementById('variantProductCard');
 
-    openBtn.addEventListener('click', () => choiceModal.show());
-
-    document.getElementById('chooseSimpleProductBtn').addEventListener('click', () => {
-        choiceModal.hide();
-        variantCard.hidden = true;
-        simpleCard.hidden = false;
-        simpleCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
-    document.getElementById('chooseVariantProductBtn').addEventListener('click', () => {
-        choiceModal.hide();
+    // La mayoría de los productos vienen en varias presentaciones, así que
+    // "Crear producto" abre directo ese formulario — sin preguntar antes.
+    // El link "¿Es un solo producto?" es la salida para el caso simple.
+    openBtn.addEventListener('click', () => {
         simpleCard.hidden = true;
         variantCard.hidden = false;
         variantCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    document.getElementById('switchToSimpleProductBtn').addEventListener('click', () => {
+        variantCard.hidden = true;
+        simpleCard.hidden = false;
+        simpleCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     document.getElementById('cancelSimpleProductBtn').addEventListener('click', () => {
