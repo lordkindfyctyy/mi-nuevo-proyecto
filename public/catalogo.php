@@ -253,7 +253,8 @@ $whatsappGeneralUrl = $whatsappDigits
                         <span class="badge" id="detail-stock-badge"></span>
                     </div>
                     <div class="text-secondary small mb-2" id="detail-meta"></div>
-                    <p id="detail-description" class="mb-0"></p>
+                    <button type="button" id="detail-description-toggle" class="catalog-card-desc-toggle mb-1" hidden>Ver más información <i class="bi bi-chevron-down"></i></button>
+                    <p id="detail-description" class="mb-0" hidden></p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary flex-grow-1" id="detail-add-btn">Agregar</button>
@@ -302,6 +303,7 @@ $whatsappGeneralUrl = $whatsappDigits
         const detailStockBadgeEl = document.getElementById('detail-stock-badge');
         const detailMetaEl = document.getElementById('detail-meta');
         const detailDescriptionEl = document.getElementById('detail-description');
+        const detailDescriptionToggleEl = document.getElementById('detail-description-toggle');
         const detailAddBtn = document.getElementById('detail-add-btn');
         const detailAskBtn = document.getElementById('detail-ask-btn');
         const detailPresentationsEl = document.getElementById('detail-presentations');
@@ -712,8 +714,12 @@ $whatsappGeneralUrl = $whatsappDigits
             detailMetaEl.textContent = metaParts.join(' · ');
             detailMetaEl.hidden = metaParts.length === 0;
 
+            // La descripción arranca siempre plegada: se muestra solo si el
+            // cliente toca "Ver más información".
             detailDescriptionEl.textContent = product.description || '';
-            detailDescriptionEl.hidden = !product.description;
+            detailDescriptionEl.hidden = true;
+            detailDescriptionToggleEl.hidden = !product.description;
+            detailDescriptionToggleEl.innerHTML = 'Ver más información <i class="bi bi-chevron-down"></i>';
 
             detailAddBtn.disabled = !inStock || maxedOut;
             detailAddBtn.textContent = inCartQty > 0 ? `Agregar (${inCartQty} en tu pedido)` : 'Agregar';
@@ -926,6 +932,14 @@ $whatsappGeneralUrl = $whatsappDigits
             if (currentDetailProductId === null) return;
             addToCart(currentDetailProductId);
             renderProductDetail();
+        });
+
+        detailDescriptionToggleEl.addEventListener('click', () => {
+            const expanded = !detailDescriptionEl.hidden;
+            detailDescriptionEl.hidden = expanded;
+            detailDescriptionToggleEl.innerHTML = expanded
+                ? 'Ver más información <i class="bi bi-chevron-down"></i>'
+                : 'Ver menos <i class="bi bi-chevron-up"></i>';
         });
 
         detailModalEl.addEventListener('hidden.bs.modal', () => {
