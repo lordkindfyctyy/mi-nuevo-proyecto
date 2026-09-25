@@ -135,6 +135,9 @@ $whatsappGeneralUrl = $whatsappDigits
         .amount-input::-webkit-outer-spin-button, .amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .detail-image { width: 100%; height: 220px; object-fit: contain; border-radius: .5rem; background: #f3f4f6; display: block; }
         .detail-placeholder { width: 100%; height: 220px; background: #f3f4f6; border-radius: .5rem; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 3rem; }
+        .detail-presentations { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .3rem; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+        .detail-presentation-pill { flex: 0 0 auto; border: 1px solid #e5e7eb; border-radius: 999px; padding: .35rem .9rem; font-size: .82rem; font-weight: 600; background: #fff; color: #1f2937; white-space: nowrap; }
+        .detail-presentation-pill.active { background: #00b28f; border-color: #00b28f; color: #fff; }
     </style>
 </head>
 <body>
@@ -242,6 +245,7 @@ $whatsappGeneralUrl = $whatsappDigits
                 </div>
                 <div class="modal-body">
                     <div id="detail-image-wrap" class="mb-3"></div>
+                    <div id="detail-presentations" class="detail-presentations mb-3" hidden></div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="fs-4 fw-bold" style="color:#00b28f;" id="detail-price">$0.00</div>
                         <span class="badge" id="detail-stock-badge"></span>
@@ -298,6 +302,7 @@ $whatsappGeneralUrl = $whatsappDigits
         const detailDescriptionEl = document.getElementById('detail-description');
         const detailAddBtn = document.getElementById('detail-add-btn');
         const detailAskBtn = document.getElementById('detail-ask-btn');
+        const detailPresentationsEl = document.getElementById('detail-presentations');
 
         if (!gridEl) return;
 
@@ -305,6 +310,70 @@ $whatsappGeneralUrl = $whatsappDigits
         const customerStorageKey = 'catalog_customer_' + <?= json_encode($token) ?>;
         let canOrder = false;
         let currentDetailProductId = null;
+        let currentGroup = null;
+
+        // Productos que en realidad son distintas presentaciones/pesos del
+        // mismo artículo (ej. "Royal Canin Mini Adulto 3k" / "... 15k")
+        // comparten un mismo nombre base una vez que se les saca el peso del
+        // final. Agruparlos deja ver una sola tarjeta con una sola imagen en
+        // vez de una por presentación — igual que en Vender — y el cliente
+        // elige la presentación deslizando las opciones dentro de la ficha.
+        const PRESENTATION_RE = /^(.*?)[\s-]+((?:x\s*)?\d+(?:[.,]\d+)?\s*(?:x\s*\d+(?:[.,]\d+)?\s*)?(?:kgs?|kilos?|k|grs?|gramos?|g|mls?|ml|lts?|litros?|l)\.?|suelto|a\s*granel)$/i;
+
+        function splitPresentation(name) {
+            const trimmed = (name || '').trim();
+            const match = trimmed.match(PRESENTATION_RE);
+            if (match && match[1].trim().length >= 3) {
+                return { base: match[1].trim(), variant: match[2].trim() };
+            }
+            return { base: trimmed, variant: '' };
+        }
+
+        const WEIGHT_VALUE_RE = /^x?\s*(\d+(?:[.,]\d+)?)\s*(?:x\s*(\d+(?:[.,]\d+)?)\s*)?(kgs?|kilos?|k|grs?|gramos?|g|mls?|ml|lts?|litros?|l)\.?$/i;
+
+        function presentationWeightGrams(variantLabel) {
+            const label = (variantLabel || '').trim().toLowerCase();
+            if (label === '' || /^suelto$|^a\s*granel$/.test(label)) return 0;
+
+            const match = label.match(WEIGHT_VALUE_RE);
+            if (!match) return 0;
+
+            const primary = parseFloat(match[1].replace(',', '.'));
+            const packCount = match[2] ? parseFloat(match[2].replace(',', '.')) : 1;
+            const gramsPerUnit = /^(kgs?|kilos?|k)\.?$/.test(match[3]) || /^(lts?|litros?|l)\.?$/.test(match[3]) ? 1000 : 1;
+
+            return primary * packCount * gramsPerUnit;
+        }
+
+        let productIdToGroup = new Map();
+        function buildVariantGroups() {
+            productIdToGroup = new Map();
+            const groupsByKey = new Map();
+            products.forEach((p) => {
+                const { base } = splitPresentation(p.name);
+                const key = base.toLowerCase().replace(/\s+/g, ' ');
+                if (!groupsByKey.has(key)) groupsByKey.set(key, { label: base, members: [] });
+                groupsByKey.get(key).members.push(p);
+            });
+            groupsByKey.forEach((group) => {
+                if (group.members.length > 1) {
+                    group.members.forEach((p) => productIdToGroup.set(p.id, group));
+                }
+            });
+        }
+
+        function sortedGroupMembers(group) {
+            return [...group.members].sort((a, b) => {
+                const weightA = presentationWeightGrams(splitPresentation(a.name).variant);
+                const weightB = presentationWeightGrams(splitPresentation(b.name).variant);
+                return weightA - weightB;
+            });
+        }
+
+        function pickDefaultVariant(group) {
+            const sorted = sortedGroupMembers(group);
+            return sorted.find((p) => p.stock > 0) || sorted[0];
+        }
 
         function loadCart() {
             try {
@@ -484,52 +553,136 @@ $whatsappGeneralUrl = $whatsappDigits
             gridEl.innerHTML = '';
             noResultsEl.hidden = filtered.length > 0;
 
+            const renderedGroups = new Set();
+
             filtered.forEach((product) => {
-                const inStock = product.stock > 0;
-                const inCartQty = cartQuantity(product.id);
-                const maxedOut = inCartQty >= product.stock;
-                const card = document.createElement('div');
-                card.className = 'catalog-card';
-                const askUrl = whatsappDigits
-                    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Hola, quiero consultar sobre: ' + product.name)}`
-                    : null;
-                card.innerHTML = `
-                    <div class="catalog-card-image">
-                        ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
-                        <span class="badge ${inStock ? 'bg-success' : 'bg-danger'} catalog-stock-badge">${inStock ? formatQty(product.stock) + ' disp.' : 'Sin stock'}</span>
-                    </div>
-                    <div class="catalog-card-body">
-                        <div class="catalog-card-price">${formatMoney(product.price)}</div>
-                        <div class="catalog-card-name">${escapeHtml(product.name)}</div>
-                        ${product.sku ? `<div class="catalog-card-sku">SKU: ${escapeHtml(product.sku)}</div>` : ''}
-                        ${inCartQty > 0 ? `<div class="catalog-in-cart-note">En tu pedido: ${inCartQty}</div>` : ''}
-                        <div class="catalog-card-actions">
-                            <button type="button" class="btn btn-sm btn-primary flex-grow-1 add-to-cart-btn" ${!inStock || maxedOut ? 'disabled' : ''}>Agregar</button>
-                            ${askUrl ? `<a href="${askUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="Preguntar por WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
-                        </div>
-                    </div>
-                `;
-                card.querySelector('.add-to-cart-btn').addEventListener('click', () => addToCart(product.id));
-                card.addEventListener('click', (e) => {
-                    if (e.target.closest('.catalog-card-actions')) return;
-                    openProductDetail(product.id);
-                });
-                gridEl.appendChild(card);
+                const group = productIdToGroup.get(product.id);
+                if (group) {
+                    if (renderedGroups.has(group)) return;
+                    renderedGroups.add(group);
+                    renderGroupCard(group);
+                    return;
+                }
+                renderSingleCard(product);
             });
         }
 
-        function renderProductDetail(id) {
-            const product = findProduct(id);
+        function renderSingleCard(product) {
+            const inStock = product.stock > 0;
+            const inCartQty = cartQuantity(product.id);
+            const maxedOut = inCartQty >= product.stock;
+            const card = document.createElement('div');
+            card.className = 'catalog-card';
+            const askUrl = whatsappDigits
+                ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Hola, quiero consultar sobre: ' + product.name)}`
+                : null;
+            card.innerHTML = `
+                <div class="catalog-card-image">
+                    ${product.image ? `<img src="${escapeHtml(product.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                    <span class="badge ${inStock ? 'bg-success' : 'bg-danger'} catalog-stock-badge">${inStock ? formatQty(product.stock) + ' disp.' : 'Sin stock'}</span>
+                </div>
+                <div class="catalog-card-body">
+                    <div class="catalog-card-price">${formatMoney(product.price)}</div>
+                    <div class="catalog-card-name">${escapeHtml(product.name)}</div>
+                    ${product.sku ? `<div class="catalog-card-sku">SKU: ${escapeHtml(product.sku)}</div>` : ''}
+                    ${inCartQty > 0 ? `<div class="catalog-in-cart-note">En tu pedido: ${inCartQty}</div>` : ''}
+                    <div class="catalog-card-actions">
+                        <button type="button" class="btn btn-sm btn-primary flex-grow-1 add-to-cart-btn" ${!inStock || maxedOut ? 'disabled' : ''}>Agregar</button>
+                        ${askUrl ? `<a href="${askUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="Preguntar por WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
+                    </div>
+                </div>
+            `;
+            card.querySelector('.add-to-cart-btn').addEventListener('click', () => addToCart(product.id));
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.catalog-card-actions')) return;
+                openProductDetail(product.id);
+            });
+            gridEl.appendChild(card);
+        }
+
+        // Una tarjeta por grupo: una sola imagen, precio "Desde $X" si las
+        // presentaciones tienen distinto valor, y un botón "Elegir" que abre
+        // la ficha para deslizar entre presentaciones — en vez de mostrar
+        // cada presentación como si fuera un producto aparte.
+        function renderGroupCard(group) {
+            const members = group.members;
+            const withImage = members.find((p) => p.image);
+            const prices = members.map((p) => p.price);
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            const priceLabel = minPrice === maxPrice ? formatMoney(minPrice) : `Desde ${formatMoney(minPrice)}`;
+            const anyInStock = members.some((p) => p.stock > 0);
+            const askUrl = whatsappDigits
+                ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Hola, quiero consultar sobre: ' + group.label)}`
+                : null;
+
+            const card = document.createElement('div');
+            card.className = 'catalog-card';
+            card.innerHTML = `
+                <div class="catalog-card-image">
+                    ${withImage ? `<img src="${escapeHtml(withImage.image)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<i class="bi bi-box-seam"></i>'}
+                    <span class="badge bg-primary catalog-stock-badge">${members.length} presentaciones</span>
+                </div>
+                <div class="catalog-card-body">
+                    <div class="catalog-card-price">${priceLabel}</div>
+                    <div class="catalog-card-name">${escapeHtml(group.label)}</div>
+                    <div class="catalog-card-sku">Elegí una presentación</div>
+                    <div class="catalog-card-actions">
+                        <button type="button" class="btn btn-sm btn-primary flex-grow-1 choose-variant-btn" ${anyInStock ? '' : 'disabled'}>Elegir</button>
+                        ${askUrl ? `<a href="${askUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success" title="Preguntar por WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
+                    </div>
+                </div>
+            `;
+            card.querySelector('.choose-variant-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                openProductDetail(pickDefaultVariant(group).id);
+            });
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.catalog-card-actions')) return;
+                openProductDetail(pickDefaultVariant(group).id);
+            });
+            gridEl.appendChild(card);
+        }
+
+        function renderProductDetail() {
+            const product = findProduct(currentDetailProductId);
             if (!product) return;
 
             const inStock = product.stock > 0;
-            const inCartQty = cartQuantity(id);
+            const inCartQty = cartQuantity(product.id);
             const maxedOut = inCartQty >= product.stock;
 
-            detailNameEl.textContent = product.name;
-            detailImageWrapEl.innerHTML = product.image
-                ? `<img src="${escapeHtml(product.image)}" alt="" class="detail-image" onerror="this.outerHTML='<div class=&quot;detail-placeholder&quot;><i class=&quot;bi bi-box-seam&quot;></i></div>'">`
+            detailNameEl.textContent = currentGroup ? currentGroup.label : product.name;
+
+            const imageSource = currentGroup ? (currentGroup.members.find((p) => p.image) || product) : product;
+            detailImageWrapEl.innerHTML = imageSource.image
+                ? `<img src="${escapeHtml(imageSource.image)}" alt="" class="detail-image" onerror="this.outerHTML='<div class=&quot;detail-placeholder&quot;><i class=&quot;bi bi-box-seam&quot;></i></div>'">`
                 : '<div class="detail-placeholder"><i class="bi bi-box-seam"></i></div>';
+
+            // Presentaciones deslizables: la misma ficha/imagen sirve para
+            // todo el grupo, y tocar una presentación cambia el precio,
+            // stock y botón de Agregar al producto real detrás de esa
+            // presentación, sin cerrar la ficha.
+            if (currentGroup) {
+                detailPresentationsEl.hidden = false;
+                detailPresentationsEl.innerHTML = '';
+                sortedGroupMembers(currentGroup).forEach((member) => {
+                    const { variant } = splitPresentation(member.name);
+                    const pill = document.createElement('button');
+                    pill.type = 'button';
+                    pill.className = 'detail-presentation-pill' + (member.id === product.id ? ' active' : '');
+                    pill.textContent = variant || member.name;
+                    pill.addEventListener('click', () => {
+                        currentDetailProductId = member.id;
+                        renderProductDetail();
+                    });
+                    detailPresentationsEl.appendChild(pill);
+                });
+            } else {
+                detailPresentationsEl.hidden = true;
+                detailPresentationsEl.innerHTML = '';
+            }
+
             detailPriceEl.textContent = formatMoney(product.price);
             detailStockBadgeEl.className = 'badge ' + (inStock ? 'bg-success' : 'bg-danger');
             detailStockBadgeEl.textContent = inStock ? formatQty(product.stock) + ' disponibles' : 'Sin stock';
@@ -547,9 +700,12 @@ $whatsappGeneralUrl = $whatsappDigits
             detailAddBtn.disabled = !inStock || maxedOut;
             detailAddBtn.textContent = inCartQty > 0 ? `Agregar (${inCartQty} en tu pedido)` : 'Agregar';
 
+            const askName = currentGroup
+                ? `${currentGroup.label} ${splitPresentation(product.name).variant || ''}`.trim()
+                : product.name;
             if (whatsappDigits) {
                 detailAskBtn.hidden = false;
-                detailAskBtn.href = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Hola, quiero consultar sobre: ' + product.name)}`;
+                detailAskBtn.href = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent('Hola, quiero consultar sobre: ' + askName)}`;
             } else {
                 detailAskBtn.hidden = true;
             }
@@ -557,7 +713,8 @@ $whatsappGeneralUrl = $whatsappDigits
 
         function openProductDetail(id) {
             currentDetailProductId = id;
-            renderProductDetail(id);
+            currentGroup = productIdToGroup.get(id) || null;
+            renderProductDetail();
             bootstrap.Modal.getOrCreateInstance(detailModalEl).show();
         }
 
@@ -723,13 +880,15 @@ $whatsappGeneralUrl = $whatsappDigits
                 .then((res) => res.json())
                 .then((data) => {
                     products = data.products || [];
+                    buildVariantGroups();
                     reconcileCartWithStock();
                     renderFilters();
                     renderBrandOptions();
                     renderGrid();
                     renderCart();
                     if (currentDetailProductId !== null && detailModalEl.classList.contains('show')) {
-                        renderProductDetail(currentDetailProductId);
+                        currentGroup = productIdToGroup.get(currentDetailProductId) || null;
+                        renderProductDetail();
                     }
                     lastUpdatedEl.textContent = 'actualizado ' + new Date().toLocaleTimeString('es-CO');
                 })
@@ -748,11 +907,12 @@ $whatsappGeneralUrl = $whatsappDigits
         detailAddBtn.addEventListener('click', () => {
             if (currentDetailProductId === null) return;
             addToCart(currentDetailProductId);
-            renderProductDetail(currentDetailProductId);
+            renderProductDetail();
         });
 
         detailModalEl.addEventListener('hidden.bs.modal', () => {
             currentDetailProductId = null;
+            currentGroup = null;
         });
 
         proceedCheckoutBtn.addEventListener('click', () => {
@@ -791,6 +951,7 @@ $whatsappGeneralUrl = $whatsappDigits
         });
 
         loadCart();
+        buildVariantGroups();
         reconcileCartWithStock();
         renderFilters();
         renderBrandOptions();
