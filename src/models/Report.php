@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/database.php';
 
 class Report
 {
-    public const PERIODS = ['day', 'week', 'month', 'year', 'custom'];
+    public const PERIODS = ['day', 'yesterday', 'week', 'month', 'year', 'custom'];
 
     private static function db(): PDO
     {
@@ -68,6 +68,19 @@ class Report
                 ];
             }
             $period = 'day';
+        }
+
+        if ($period === 'yesterday') {
+            $yesterday = $now->modify('-1 day');
+
+            return [
+                'period' => 'yesterday',
+                'start' => $yesterday->format('Y-m-d 00:00:00'),
+                'end' => $yesterday->format('Y-m-d 23:59:59'),
+                'label' => 'Ayer',
+                'startInput' => $yesterday->format('Y-m-d'),
+                'endInput' => $yesterday->format('Y-m-d'),
+            ];
         }
 
         $dayOfWeek = (int) $now->format('N'); // 1 (lunes) .. 7 (domingo)
@@ -186,7 +199,7 @@ class Report
      */
     public static function salesTrend(int $tenantId, array $range): array
     {
-        if ($range['period'] === 'day') {
+        if ($range['period'] === 'day' || $range['period'] === 'yesterday') {
             return self::hourlyTrend($tenantId, $range);
         }
 

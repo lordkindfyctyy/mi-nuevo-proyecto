@@ -26,10 +26,10 @@ $topProductsQuantities = json_encode(array_map(fn($p) => (float) $p['quantity_so
 
 $periodOptions = [
     'day' => 'Hoy',
+    'yesterday' => 'Ayer',
     'week' => 'Esta semana',
     'month' => 'Este mes',
     'year' => 'Este año',
-    'mixed' => 'Pago mixto',
 ];
 
 $paymentLabels = [
